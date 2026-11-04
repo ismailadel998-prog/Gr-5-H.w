@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto+Condensed:wght@700&family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* Layout: a stack of workbook pages (navy bands, green page edge) under a sticky homework bar.
+     One deliberate light look that matches the printed booklet, so every colour is set explicitly. */
+  :root{
+    --navy:#111c57; --green:#5cc246; --desk:#e6e9ef; --paper:#fbfbfa; --ink:#1f2328; --muted:#5d6470;
+    --line:#8b929b; --box:#fffcee; --soft:#e9e9ec; --rule:#c7c9d1; --white:#ffffff;
+    --ok:#1d7f46; --ok-bg:#e1f3e8; --bad:#c23b3b; --bad-bg:#fbe4e4; --mark:#fde58a;
+    --display:"Roboto Condensed","Arial Narrow",Arial,sans-serif;
+    --body:"Open Sans","Segoe UI",system-ui,sans-serif;
+    --hand:"Comic Neue","Comic Sans MS",cursive;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--desk);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:40;background:var(--white)}
+  button,input,select,textarea{font-family:inherit;color:var(--ink)}
+  button{cursor:pointer}
+  :focus-visible{outline:3px solid #2c63c9;outline-offset:2px}
+  sup{font-size:.62em;line-height:0}
+
+  /* ---------- sticky homework bar ---------- */
+  .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--white);box-shadow:0 2px 8px rgba(17,28,87,.10)}
+  .bar .in{max-width:1180px;margin:0 auto;padding-block:10px 12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:8px}
+  .row1{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px}
+  .row1 h1{margin:0;font-size:19px;color:var(--navy);font-weight:700;text-wrap:balance}
+  .prog{flex:1;min-width:180px}
+  .prog .t{font-size:14px;color:var(--muted)}
+  .prog .track{height:10px;background:#e1e4ec;border-radius:99px;overflow:hidden;margin-top:3px}
+  .prog .track i{display:block;height:100%;width:0;background:var(--green);border-radius:99px;transition:width .3s}
+  .days{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+  .day{flex:0 0 auto;border:1.5px solid var(--rule);background:var(--white);border-radius:8px;padding:5px 11px;text-align:left;line-height:1.25;font-size:13px;color:var(--muted)}
+  .day b{display:block;color:var(--ink);font-size:14px}
+  .day.on{background:var(--navy);border-color:var(--navy);color:#cfd5f0}
+  .day.on b{color:var(--white)}
+  .day .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-left:5px;vertical-align:1px}
+
+  /* ---------- workbook page ---------- */
+  main{max-width:1180px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:26px}
+  .page{position:relative;background:var(--paper);box-shadow:0 2px 10px rgba(17,28,87,.12);border-top:16px solid var(--navy);border-bottom:16px solid var(--navy);padding:28px 70px 22px 40px;min-width:0}
+  .page::after{content:"";position:absolute;top:0;bottom:0;right:0;width:30px;background:var(--green)}
+  .page.left{padding:28px 40px 22px 70px}
+  .page.left::after{right:auto;left:0}
+  .hwtag{display:inline-block;background:var(--navy);color:var(--white);font-size:13px;font-weight:600;border-radius:999px;padding:3px 12px;margin-bottom:12px}
+
+  .namebar{display:flex;align-items:flex-end;gap:10px 14px;flex-wrap:wrap;margin-bottom:6px}
+  .namebar label{font-size:18px;color:#333;padding-bottom:6px}
+  .nm{flex:1 1 260px;position:relative;min-width:0}
+  .nm input{width:100%;border:0;border-bottom:1.5px solid #777;background:transparent;font-size:21px;padding:4px 6px;outline:none}
+  .nm input:focus{border-bottom-color:var(--navy);background:#f1f4fb}
+  .help{font-size:14px;color:var(--muted);margin-top:4px}
+  .help.ok{color:var(--ok);font-weight:600}
+  .clsel{border:0;border-bottom:1.5px solid #777;background:transparent;font-size:18px;padding:4px 6px;min-width:110px}
+  .ac{position:absolute;left:0;right:0;top:44px;background:var(--white);border:1px solid #cdd1dc;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:25;max-height:320px;overflow:auto}
+  .ac div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;font-size:17px;cursor:pointer;border-bottom:1px solid #f0f0f2}
+  .ac div:hover,.ac div.hi{background:#e7edf9}
+  .ac mark{background:var(--mark);color:inherit;padding:0}
+  .ac .badge{background:var(--navy);color:var(--white);border-radius:999px;font-size:12px;font-weight:700;padding:2px 9px}
+  .ac .none{color:#888;cursor:default}
+
+  .page-top{display:flex;justify-content:flex-end;margin:10px 0 16px}
+  .ap-box{border:3px solid var(--rule);border-radius:14px;padding:10px 20px 12px;background:var(--white);width:420px;max-width:100%;box-shadow:0 3px 0 #dcdde3}
+  .ap-title{font-family:var(--display);font-weight:700;font-size:30px;line-height:1.15;color:#222}
+  .ap-title em{font-style:normal;font-family:"Arial Black",Arial,sans-serif;font-size:34px}
+  .ap-sub{font-weight:700;color:#4a4a4a;font-size:21px;line-height:1.3;margin-top:4px;text-wrap:balance}
+  .another{border:3px solid #555;border-radius:3px;padding:14px 20px 18px;margin-bottom:22px}
+  .another h3{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:25px}
+  .look{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .look > div{flex:1 1 260px;min-width:0}
+  .bubble{font-family:var(--hand);font-size:17px;line-height:1.3;background:var(--white);border:2px solid var(--green);border-radius:50%;padding:16px 24px;text-align:center;max-width:360px;position:relative;flex:0 1 330px}
+  .bubble::after{content:"";position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);border:10px solid transparent;border-top-color:var(--green);border-bottom:0}
+  .steps{display:grid;grid-template-columns:max-content max-content;column-gap:8px;font-variant-numeric:tabular-nums}
+
+  .dir{display:inline-block;background:var(--soft);border:1.5px solid #9a9aa2;padding:6px 14px;margin:10px 0 14px;font-size:16px}
+  .assess{display:flex;align-items:center;gap:10px;margin:22px 0 8px}
+  .assess .pill{display:flex;align-items:center;gap:8px;background:var(--navy);color:var(--white);font-family:var(--display);font-weight:700;font-size:19px;padding:3px 14px 3px 4px;border-radius:6px}
+  .assess .pill i{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--white);color:var(--navy);align-items:center;justify-content:center;font-style:normal;font-size:15px}
+  .assess hr{flex:1;border:0;border-top:3px solid var(--navy);margin:0}
+  .page-foot{display:flex;justify-content:flex-end;gap:22px;margin-top:28px;font-size:17px}
+  .page.left .page-foot{justify-content:flex-start}
+  .page-foot span+span{font-weight:700}
+  .page-foot .tl b{font-weight:700}
+  .page-foot .tl em{font-style:normal;border-left:1.5px solid var(--ink);margin-left:9px;padding-left:9px}
+
+  /* ---------- questions ---------- */
+  .qs{display:grid;gap:26px 26px;margin-bottom:6px}
+  .c1{grid-template-columns:1fr}
+  .c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .c4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .split{gap:0}
+  .split > .q{padding:18px 24px 22px 0;border-top:1.5px solid #9a9aa2}
+  .split > .q:nth-child(2n){padding-left:24px;padding-right:0;border-left:1.5px solid #9a9aa2}
+  .q{position:relative;min-width:0}
+  .qline{display:flex;gap:10px;align-items:baseline}
+  .num{font-weight:700;min-width:28px;font-size:19px;color:#333;flex:0 0 auto}
+  .tag{font-weight:700;color:#3d4450}
+  .txt{min-width:0}
+  .ans{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin:10px 0 0 38px}
+  .ans .lab{font-size:15px;color:var(--muted)}
+  input.b{border:1.5px solid var(--line);background:var(--box);border-radius:6px;height:44px;width:150px;max-width:100%;font-size:20px;padding:4px 8px;text-align:center;outline:none;font-variant-numeric:tabular-nums}
+  input.b.sm{width:64px}
+  input.b:focus{border-color:#2c63c9;box-shadow:0 0 0 2px rgba(44,99,201,.2)}
+  input.b.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok);font-weight:700}
+  input.b.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad);font-weight:700}
+  .vert{display:inline-grid;grid-template-columns:auto auto;column-gap:8px;font-size:21px;font-variant-numeric:tabular-nums;line-height:1.35}
+  .vert .r{text-align:right;padding-right:6px}
+  .vert .u{border-bottom:2px solid var(--ink)}
+  .inl{font-size:20px;white-space:nowrap}
+  .lines{display:grid;gap:8px;margin:8px 0 0 38px}
+  .lines .l{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:19px;font-variant-numeric:tabular-nums}
+  .lines .l > span:first-child{min-width:140px}
+  .opts{display:flex;flex-wrap:wrap;gap:8px 26px;margin:10px 0 0 38px}
+  .opts.two{display:grid;grid-template-columns:repeat(2,max-content);gap:10px 56px}
+  .opt{border:0;background:none;padding:2px 0;font-size:18px;display:flex;align-items:center;gap:10px;text-align:left}
+  .opt b{display:inline-flex;flex:0 0 auto;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--ink);align-items:center;justify-content:center;font-size:14px;background:var(--white)}
+  .opt.sq b{border-radius:5px}
+  .opt.on b{background:var(--navy);border-color:var(--navy);color:var(--white)}
+  .opt.on.ok b{background:var(--ok);border-color:var(--ok)}
+  .opt.on.bad b{background:var(--bad);border-color:var(--bad)}
+  .opts.col{flex-direction:column;gap:8px}
+  .digits{display:flex;align-items:center;gap:6px;margin:10px 0 0 38px;font-size:20px;flex-wrap:wrap}
+  .digits label{display:flex;align-items:center;gap:4px;font-style:italic}
+
+  .data{border:3px solid var(--rule);border-radius:10px;display:flex;overflow:hidden;width:max-content;max-width:100%;font-size:16px;background:var(--white)}
+  .data .side{background:#777;color:var(--white);writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700;font-size:11px;letter-spacing:2px;padding:6px 3px;text-align:center}
+  .data table{border-collapse:collapse}
+  .data th{padding:4px 16px;border-bottom:1.5px dotted #888}
+  .data td{padding:3px 16px;font-variant-numeric:tabular-nums}
+  .data td+td,.data th+th{border-left:1.5px dotted #888;text-align:center}
+  .data tr:nth-child(odd) td{background:#f1f1f3}
+  .wrapx{overflow-x:auto;max-width:100%}
+  .tape{font-size:14px;font-weight:700;margin:10px 0 0 38px;max-width:420px}
+  .tape .tot{text-align:center;position:relative;padding-bottom:3px;border-bottom:1.5px solid var(--ink);margin-bottom:5px;font-style:italic}
+  .tape .bx{display:flex;border:1.5px solid var(--ink);background:var(--white)}
+  .tape .bx div{flex:1;text-align:center;padding:6px 2px;min-height:30px}
+  .tape .bx div+div{border-left:1.5px solid var(--ink)}
+  .pvc{border-collapse:collapse;font-size:19px;font-weight:700;margin:10px 0 0 38px}
+  .pvc th{font-size:11px;font-weight:600;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg);height:96px;padding:2px 6px;text-align:left}
+  .pvc td{width:34px;height:32px;border:1.5px solid #555;text-align:center;background:var(--white)}
+  .pvc td.g{background:#ddd}
+
+  .chk{display:flex;align-items:center;gap:10px;margin:12px 0 0 38px;min-height:30px;flex-wrap:wrap}
+  .chk button{border:1.5px solid var(--navy);color:var(--navy);background:var(--white);border-radius:6px;padding:4px 16px;font-size:14px;font-weight:600}
+  .chk button:hover{background:#eef1f9}
+  .fb{font-size:14px;font-weight:600}
+  .fb.ok{color:var(--ok)} .fb.bad{color:var(--bad)} .fb.wait{color:var(--muted)}
+  .mark{position:absolute;left:-30px;top:2px;width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center;color:var(--white);font-weight:700;font-size:14px}
+  .q.ok .mark{display:flex;background:var(--ok)} .q.bad .mark{display:flex;background:var(--bad)}
+  .q.ok .mark::before{content:"✓"} .q.bad .mark::before{content:"✗"}
+
+  /* ---------- submit + result ---------- */
+  .submitbox{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--white);border:2px solid var(--navy);border-radius:10px;padding:14px 18px}
+  .submitbox p{margin:0;color:var(--muted);font-size:15px}
+  .tb{border:2px solid var(--navy);background:var(--white);color:var(--navy);border-radius:8px;padding:10px 20px;font-size:17px;font-weight:600}
+  .tb.fill{background:var(--navy);color:var(--white)}
+  .tb:disabled{opacity:.5;cursor:default}
+  .result{background:var(--white);border:3px solid var(--navy);border-radius:12px;padding:18px 22px;display:grid;gap:10px}
+  .result .score{font-family:var(--display);font-size:56px;line-height:1;color:var(--navy);font-weight:700;font-variant-numeric:tabular-nums}
+  .result .who{color:var(--muted);font-weight:600}
+  .result .btns{display:flex;flex-wrap:wrap;gap:10px}
+  .result .btns .tb.fill{font-size:19px;padding:13px 26px}
+  .rlist{display:grid;gap:4px;font-size:15px}
+  .rlist div{display:flex;gap:10px;border-bottom:1px dotted #c3c6cf;padding:4px 0}
+  .rlist b{min-width:58px}
+  .note{font-size:14px;color:var(--muted)}
+
+  .modal{position:fixed;inset:0;background:rgba(10,16,40,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal .box{background:var(--white);padding:22px;max-width:440px;width:100%;border-radius:10px;border-top:10px solid var(--navy)}
+  .modal h3{margin:0 0 8px;font-size:22px;color:var(--navy)}
+  .modal .mb{display:flex;gap:10px;margin-top:16px}.modal .mb button{flex:1}
+  .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--navy);color:var(--white);padding:10px 18px;font-weight:600;z-index:60;border-radius:8px;max-width:90vw;text-align:center}
+
+  @media (max-width:860px){
+    .page,.page.left{padding:22px 34px 20px 16px;border-top-width:11px;border-bottom-width:11px}
+    .page.left{padding:22px 16px 20px 34px}
+    .page::after{width:14px}
+    .c4{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .c3{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .c2,.split{grid-template-columns:1fr}
+    .split > .q:nth-child(2n){padding-left:0;border-left:0}
+  }
+  @media (max-width:520px){
+    body{font-size:16px}
+    .c3,.c4{grid-template-columns:1fr}
+    .ap-title{font-size:25px}.ap-title em{font-size:29px}.ap-sub{font-size:18px}
+    .ans,.lines,.opts,.chk,.digits,.tape,.pvc{margin-left:30px}
+    .mark{left:-26px}
+    .opts.two{grid-template-columns:1fr}
+    .lines .l > span:first-child{min-width:0}
+  }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+
+  /* ---------- one-link app additions ---------- */
+  main{grid-template-columns:minmax(0,1fr)}
+  main > *{min-width:0}
+  .tape .bx{overflow-x:auto}
+  .tape .bx div{min-width:34px}
+  .pat{font-size:19px;line-height:1.8;font-variant-numeric:tabular-nums}
+  .hintline{font-size:14px;color:var(--muted);margin:4px 0 0 38px}
+  .start{background:var(--paper);border-top:16px solid var(--navy);border-bottom:16px solid var(--navy);box-shadow:0 2px 10px rgba(17,28,87,.12);padding:26px 28px;position:relative}
+  .start h2{margin:0 0 4px;font-family:var(--display);font-size:30px;color:var(--navy)}
+  .start p{margin:0 0 16px;color:var(--muted)}
+  .plan{display:grid;gap:6px;margin-top:18px}
+  .plan div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted var(--rule);padding:4px 0;font-size:15px}
+  .done{background:var(--white);border:2px solid var(--ok);border-radius:12px;padding:14px 18px;display:grid;gap:8px}
+  .done .top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;justify-content:space-between}
+  .done .title{font-weight:700;color:var(--ok);font-size:18px}
+  .done .sc{font-family:var(--display);font-size:30px;color:var(--navy);font-variant-numeric:tabular-nums}
+  .done .tb{padding:6px 14px;font-size:15px}
+  .next{outline:4px solid var(--green);outline-offset:4px}
+  .nexttag{display:inline-block;background:var(--green);color:var(--white);font-weight:700;border-radius:999px;padding:3px 12px;font-size:14px;margin-left:6px}
+  .partsubmit{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border-top:2px dashed var(--rule);margin-top:24px;padding-top:16px}
+  .partsubmit p{margin:0;color:var(--muted);font-size:15px}
+  .finished{background:var(--ok-bg);border:2px solid var(--ok);border-radius:12px;padding:16px 20px;font-weight:600;color:var(--ok);text-align:center}
+  .saving{font-size:13px;color:var(--muted)}
+  .q.locked input,.q.locked .opt{pointer-events:none}
+</style>
+</head>
+<body>
+
+<header class="bar"><div class="in">
+  <div class="row1">
+    <h1>Grade 5 Math Homework · Weeks 10–11</h1>
+    <div class="prog"><div class="t"><span id="who">Choose your name to start</span> · parts done <b id="nDone">0</b> of <b id="nAll">8</b> <span class="saving" id="saveState"></span></div><div class="track"><i id="fill"></i></div></div>
+  </div>
+</div></header>
+
+<main id="main">
+  <section class="start" id="startBox">
+    <h2>Hello! Who are you?</h2>
+    <p>Type the first letters of your first name, then tap your name in the list.</p><p class="note" style="margin-top:-8px">Your work is saved on this device, so continue next time on the same device. After you submit a part, press <b>Download PDF</b> and send it to your teacher.</p>
+    <div class="namebar"><label for="nameIn">Name</label>
+      <div class="nm"><input id="nameIn" placeholder="Start typing your first name..." autocomplete="off" spellcheck="false">
+        <div class="ac" id="ac" hidden></div><div class="help" id="nameHelp">Your work is saved on this device.</div></div>
+      <label for="clsSel">Class</label><select class="clsel" id="clsSel"><option value="">—</option></select></div>
+    <div class="plan" id="plan"></div>
+  </section>
+</main>
+
+<div id="modal" class="modal" hidden><div class="box" id="modalBox"></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+const DATA = {"roster":{"classes":["5A","5B","Test"],"students":[{"cls":"5A","name":"Abdulrahem Mohammad Abdel-Haleem Mohammad Naser"},{"cls":"5A","name":"Radwan Mohammad Eyad Albiriss"},{"cls":"5A","name":"Hamza Ahmed Bahaa Saleh"},{"cls":"5A","name":"Moaaz Ahmed Ragab"},{"cls":"5A","name":"Anas Mohammad Jamal Hotheel"},{"cls":"5A","name":"Karam Muhanad Mahmoud Abunazzal"},{"cls":"5A","name":"Hussien Mohamed Hussien Amin Zekry"},{"cls":"5A","name":"Omar Emad Mohamed Elmokaid"},{"cls":"5A","name":"Kenan Ameen Shayah"},{"cls":"5A","name":"Anas Abdulmaqsoud Yosseri Abdulmaqsoud Hussien"},{"cls":"5A","name":"Abdel Majeed Amjed Abed Alhameed Taneenah"},{"cls":"5A","name":"Odai Motasem Alchikh Ali"},{"cls":"5A","name":"Mohammad Hussein Hafez Abuayyash"},{"cls":"5A","name":"Amir Sahuoni"},{"cls":"5A","name":"Kareem Ihab Mohammad Abedalla"},{"cls":"5A","name":"Youssef Mhd Belal Bachir"},{"cls":"5A","name":"Khaled Tariq Salim Alkayyat"},{"cls":"5A","name":"Omar Mohammad Almokaddam"},{"cls":"5A","name":"Saleh Mohammad Saleh Alsahaf"},{"cls":"5A","name":"Tariq Ammar Sedki"},{"cls":"5A","name":"Mohammad Rashad Mohammad Leloa"},{"cls":"5A","name":"Emomali Gadozoda"},{"cls":"5B","name":"Ryan Sameh Mohamed Osman"},{"cls":"5B","name":"Aws Malek Nayif Manasrah"},{"cls":"5B","name":"Sanad Waseem Ibraheem Al Masri"},{"cls":"5B","name":"Mohammad Bassam Rabhi Al-Arab"},{"cls":"5B","name":"Selim Ahmed Mohamed Elgendy"},{"cls":"5B","name":"Abdallah Amro Monther Alassi"},{"cls":"5B","name":"Jalal Sheikh Turab"},{"cls":"5B","name":"Jawad Sami Mohammad Gharib"},{"cls":"5B","name":"Kareem Mohamad Abo Shar"},{"cls":"5B","name":"Omar Obada Almadani"},{"cls":"5B","name":"Yazan Alhabian"},{"cls":"5B","name":"Sulayman Asim"},{"cls":"5B","name":"Majdaldeen Ahmed Shabareq"},{"cls":"5B","name":"Rayan Rafat Waleed Izzeddin"},{"cls":"5B","name":"Yahia Mohamed Hanafy Abdelsalam"},{"cls":"5B","name":"Yahia Mohammed Ahmed Abdelrazeq"},{"cls":"5B","name":"Mohammad Abdallah Yousef Abedalqader"},{"cls":"5B","name":"Mamdouh Turki A Alotaibi"},{"cls":"5B","name":"Saud Abdulaziz Safar Alodhayani"},{"cls":"5B","name":"Zhenyan Li"},{"cls":"5B","name":"Rashid Mustafa Ishaq Abu Adas"},{"cls":"5B","name":"Mayar Nawar Alshawaf"},{"cls":"5B","name":"Eyad Mohamed Ismail Hamed Mostafa"},{"cls":"Test","name":"Test Student"}]},"sections":[{"id":"w10-mon","week":10,"day":"Monday","page":35,"lesson":"3-5","first":true,"plan":"Answer page 35","blocks":[{"dir":"In \u003cb>1–10\u003c/b>, find each product. Estimate to check that your answer is reasonable.","cols":4,"qs":[{"n":1,"kind":"vert","a":282,"b":19},{"n":2,"kind":"vert","a":538,"b":46},{"n":3,"kind":"vert","a":395,"b":76},{"n":4,"kind":"vert","a":83,"b":57},{"n":5,"kind":"vert","a":628,"b":33},{"n":6,"kind":"vert","a":154,"b":35},{"n":7,"kind":"num","text":"\u003cspan class=\"inl\">682 × 25\u003c/span>","unit":""},{"n":8,"kind":"num","text":"\u003cspan class=\"inl\">324 × 71\u003c/span>","unit":""},{"n":9,"kind":"num","text":"\u003cspan class=\"inl\">158 × 6\u003c/span>","unit":""},{"n":10,"kind":"num","text":"\u003cspan class=\"inl\">16 × 29\u003c/span>","unit":""}]}]},{"id":"w10-tue","week":10,"day":"Tuesday","page":36,"lesson":"3-5","plan":"Answer page 36 questions 12, 13, 14, 15 and 16","blocks":[{"cols":1,"qs":[{"n":12,"kind":"num","text":"\u003cspan class=\"tag\">Vocabulary\u003c/span> What two partial products would you add to find 513 × 46? Add them. What is the final answer?","unit":""}]},{"cols":2,"split":true,"data":"\u003cdiv class=\"data\">\u003cdiv class=\"side\">DATA\u003c/div>\u003ctable>\u003ctr>\u003cth>Car\u003c/th>\u003cth>Average Speed (km/h)\u003c/th>\u003c/tr>\u003ctr>\u003ctd>Red\u003c/td>\u003ctd>217\u003c/td>\u003c/tr>\u003ctr>\u003ctd>Yellow\u003c/td>\u003ctd>242\u003c/td>\u003c/tr>\u003c/table>\u003c/div>","qs":[{"n":13,"kind":"num","text":"How many kilometers could the red car travel in 12 hours? Write an equation to show your work.","unit":"kilometers"},{"n":14,"kind":"num","text":"\u003cspan class=\"tag\">Higher Order Thinking\u003c/span> In 12 hours, how many more kilometers could the yellow car go than the red car? Show your work.","unit":"more kilometers"}]},{"assess":true,"cols":2,"qs":[{"n":15,"kind":"num","text":"Katie is building a rectangular wall. The wall will be 332 bricks wide and 39 bricks tall. How many bricks does she need to build the wall?","unit":"bricks"},{"n":16,"kind":"mc","text":"What is the product?\u003cbr>\u003cspan class=\"inl\">311 × 42\u003c/span>","opts":["1,822","1,866","13,062","13,082"]}]}]},{"id":"w10-wed","week":10,"day":"Wednesday","page":37,"lesson":"3-6","first":true,"plan":"Answer page 37","blocks":[{"cols":1,"qs":[{"n":1,"kind":"num","text":"Use the place-value chart to multiply 36 × 405. Record each step in the correct place in the chart. What is the product?","unit":"","pvc":true}]},{"dir":"In \u003cb>2–9\u003c/b>, find each product. Estimate to check for reasonableness.","cols":4,"qs":[{"n":2,"kind":"vert","a":203,"b":12},{"n":3,"kind":"vert","a":306,"b":21},{"n":4,"kind":"vert","a":109,"b":73},{"n":5,"kind":"vert","a":601,"b":45},{"n":6,"kind":"vert","a":708,"b":34},{"n":7,"kind":"vert","a":520,"b":63},{"n":8,"kind":"vert","a":405,"b":70},{"n":9,"kind":"vert","a":802,"b":94}]}]},{"id":"w10-thu","week":10,"day":"Thursday","page":38,"lesson":"3-6","plan":"Answer page 38 questions 10, 12, 13 and 15","blocks":[{"cols":1,"qs":[{"n":10,"kind":"num","text":"The Memorial Middle School Band has 108 members. They want to buy jackets with the name of the band on the back. What is the difference in the total price of the screen-print and the embroidered jackets?","unit":"dollars","side":"\u003cdiv class=\"data\">\u003cdiv class=\"side\">DATA\u003c/div>\u003ctable>\u003ctr>\u003cth>Jackets\u003c/th>\u003cth>Price (in $)\u003c/th>\u003c/tr>\u003ctr>\u003ctd>Screen print name\u003c/td>\u003ctd>35\u003c/td>\u003c/tr>\u003ctr>\u003ctd>Embroidered name\u003c/td>\u003ctd>48\u003c/td>\u003c/tr>\u003c/table>\u003c/div>"}]},{"cols":2,"split":true,"qs":[{"n":12,"kind":"num","text":"\u003cspan class=\"tag\">Higher Order Thinking\u003c/span> Replace the \u003ci>a\u003c/i>, \u003ci>b\u003c/i>, \u003ci>c\u003c/i>, and \u003ci>d\u003c/i> with the digits 2, 4, 6, 8 to form the greatest product. Each digit can only be used once. What is the greatest product?","unit":"","extra":"\u003cdiv class=\"vert\" style=\"margin:8px 0 0 38px;font-style:italic\">\u003cspan>\u003c/span>\u003cspan class=\"r\">a 0 b\u003c/span>\u003cspan>×\u003c/span>\u003cspan class=\"r u\">c d\u003c/span>\u003c/div>"},{"n":13,"kind":"choice","text":"A packing crate can hold 205 avocados. There were 7,000 avocados picked at a large grove. The owner has 36 packing crates. Does he have enough crates to ship out the avocados?","opts":["Yes","No"]}]},{"assess":true,"cols":1,"qs":[{"n":15,"kind":"vert","a":990,"b":37}]}]},{"id":"w11-sun","week":11,"day":"Sunday","page":41,"lesson":"3-8","first":true,"plan":"Answer page 41","blocks":[{"dir":"In \u003cb>1–5\u003c/b>, draw a bar diagram and write an equation. Solve.","cols":2,"qs":[{"n":1,"kind":"num","text":"A stadium has 7,525 seats. What is the total attendance for 5 games if each game is sold out?","unit":"people","extra":"\u003cdiv class=\"tape\">\u003cdiv class=\"tot\">n total number of people\u003c/div>\u003cdiv class=\"bx\">\u003cdiv>7,525\u003c/div>\u003cdiv>7,525\u003c/div>\u003cdiv>7,525\u003c/div>\u003cdiv>7,525\u003c/div>\u003cdiv>7,525\u003c/div>\u003c/div>\u003c/div>"},{"n":2,"kind":"num","text":"An aquarium has display tanks that each contain 175 fish. How many fish are on display in 6 tanks?","unit":"fish","extra":"\u003cdiv class=\"tape\">\u003cdiv class=\"tot\">? fish\u003c/div>\u003cdiv class=\"bx\">\u003cdiv>175\u003c/div>\u003cdiv>175\u003c/div>\u003cdiv>175\u003c/div>\u003cdiv>175\u003c/div>\u003cdiv>175\u003c/div>\u003cdiv>175\u003c/div>\u003c/div>\u003c/div>"},{"n":3,"kind":"num","text":"Each elephant at the zoo eats 125 pounds of food per day. How many pounds of food will 18 elephants eat?","unit":"pounds"},{"n":4,"kind":"num","text":"Joy travels a lot for her job. She flies 2,840 miles each week for 4 weeks. How many miles in all does she fly?","unit":"miles"},{"n":5,"kind":"num","text":"Jerry weighs 105 pounds. If a male brown bear weighs 11 times as much, what is the brown bear’s weight?","unit":"pounds"}]}]},{"id":"w11-mon","week":11,"day":"Monday","page":42,"lesson":"3-8","plan":"Answer page 42 questions 8, 9, 11 and 12","blocks":[{"cols":2,"split":true,"qs":[{"n":8,"kind":"num","text":"\u003cspan class=\"tag\">Higher Order Thinking\u003c/span> Daniel has 102 stamps. Manuel has twice as many stamps as Daniel. Kendra has twice as many stamps as Manuel. How many stamps do they have in all?","unit":"stamps"},{"n":9,"kind":"choice","text":"Caroline has enough pumpkin seeds to cover an area of 350 square feet. Her garden measures 18 feet by 22 feet. Does she have enough pumpkin seeds to fill the whole garden?","opts":["Yes","No"]}]},{"assess":true,"cols":2,"qs":[{"n":11,"kind":"mc","text":"Tia drives 127 miles a week. Mac drives 23 times as many miles as Tia a week. How many miles does Mac drive a week?","opts":["635 miles","1,801 miles","2,921 miles","3,021 miles"],"col":true},{"n":12,"kind":"mc","text":"Kai sends 184 text messages a month. Bo sends 12 times as many text messages a month as Kai. How many text messages does Bo send a month?","opts":["1,004 text messages","1,840 text messages","2,008 text messages","2,208 text messages"],"col":true}]}]},{"id":"w11-tue","week":11,"day":"Tuesday","page":45,"lesson":"4-1","first":true,"plan":"Answer page 45","blocks":[{"dir":"In \u003cb>1\u003c/b> and \u003cb>2\u003c/b>, use patterns to find the products.","cols":2,"qs":[{"n":1,"kind":"num","text":"\u003cdiv class=\"pat\">0.057 × 10 = ____\u003cbr>0.057 × 100 = ____\u003cbr>\u003cb>0.057 × 1,000 = ?\u003c/b>\u003c/div>","unit":"","hint":"Write the last answer."},{"n":2,"kind":"num","text":"\u003cdiv class=\"pat\">2.148 × 1 = ____\u003cbr>2.148 × 10 = ____\u003cbr>2.148 × 10\u003csup>2\u003c/sup> = ____\u003cbr>\u003cb>2.148 × 10\u003csup>3\u003c/sup> = ?\u003c/b>\u003c/div>","unit":"","hint":"Write the last answer."}]},{"dir":"In \u003cb>3–10\u003c/b>, find each product. Use place-value patterns to help you.","cols":4,"qs":[{"n":3,"kind":"num","text":"\u003cspan class=\"inl\">0.62 × 10\u003c/span>","unit":""},{"n":4,"kind":"num","text":"\u003cspan class=\"inl\">0.0063 × 100\u003c/span>","unit":""},{"n":5,"kind":"num","text":"\u003cspan class=\"inl\">19.212 × 10\u003csup>2\u003c/sup>\u003c/span>","unit":""},{"n":6,"kind":"num","text":"\u003cspan class=\"inl\">0.024 × 1,000\u003c/span>","unit":""},{"n":7,"kind":"num","text":"\u003cspan class=\"inl\">92.3 × 10\u003csup>4\u003c/sup>\u003c/span>","unit":""},{"n":8,"kind":"num","text":"\u003cspan class=\"inl\">5.001 × 10\u003csup>1\u003c/sup>\u003c/span>","unit":""},{"n":9,"kind":"num","text":"\u003cspan class=\"inl\">1.675 × 1\u003c/span>","unit":""},{"n":10,"kind":"num","text":"\u003cspan class=\"inl\">843.5 × 10\u003csup>2\u003c/sup>\u003c/span>","unit":""}]},{"dir":"In \u003cb>11–12\u003c/b>, find the missing exponent.","cols":2,"qs":[{"n":11,"kind":"exp","before":"0.936 × 10","after":" = 93.6"},{"n":12,"kind":"exp","before":"10","after":" × 12.35 = 12,350"}]}]},{"id":"w11-wed","week":11,"day":"Wednesday","page":46,"lesson":"4-1","plan":"Answer page 46 questions 13, 14, 15, 18 and 19","blocks":[{"cols":2,"split":true,"qs":[{"n":13,"kind":"num","text":"Jennifer planted a tree that was 0.17 meter tall. After 10 years, the tree was 100 times as tall as when she planted it. What is the height of the tree after 10 years?","unit":"meters"},{"n":14,"kind":"choice","text":"\u003cspan class=\"tag\">Critique Reasoning\u003c/span> Marco and Suzi each multiplied 0.721 × 10\u003csup>2\u003c/sup>. Marco got 7.21 for his product. Suzi got 72.1 for her product. Which student multiplied correctly?","opts":["Marco","Suzi"]}]},{"cols":1,"qs":[{"n":15,"kind":"num","text":"The table shows the distance a small motor scooter can travel using one gallon of gasoline. Complete the table. How many miles can the scooter travel using \u003cb>10 gallons\u003c/b>?","unit":"miles","extra":"\u003cdiv class=\"data\" style=\"margin:8px 0 0 38px\">\u003ctable>\u003ctr>\u003cth>Gallons\u003c/th>\u003cth>Miles\u003c/th>\u003c/tr>\u003ctr>\u003ctd>0.1\u003c/td>\u003ctd>____\u003c/td>\u003c/tr>\u003ctr>\u003ctd>1\u003c/td>\u003ctd>118\u003c/td>\u003c/tr>\u003ctr>\u003ctd>10\u003c/td>\u003ctd>\u003cb>?\u003c/b>\u003c/td>\u003c/tr>\u003c/table>\u003c/div>"}]},{"assess":true,"cols":2,"qs":[{"n":18,"kind":"multi","text":"Choose all equations that are \u003cb>NOT\u003c/b> true.","opts":["360 × 10\u003csup>3\u003c/sup> = 36,000","0.36 × 100 = 3,600","360 × 10\u003csup>1\u003c/sup> = 36.0","0.036 × 1,000 = 36","3.6 × 10\u003csup>1\u003c/sup> = 36"]},{"n":19,"kind":"multi","text":"Choose all equations that are true when 10\u003csup>3\u003c/sup> is placed in the box.","opts":["4.2 = ▢ × 0.042","420 = ▢ × 0.42","4,200 = ▢ × 4.2","0.042 = ▢ × 42.0","42 = ▢ × 0.042"]}]}]}],"keys":{"w10-mon:1":"5358","w10-mon:2":"24748","w10-mon:3":"30020","w10-mon:4":"4731","w10-mon:5":"20724","w10-mon:6":"5390","w10-mon:7":"17050","w10-mon:8":"23004","w10-mon:9":"948","w10-mon:10":"464","w10-tue:12":"23598","w10-tue:13":"2604","w10-tue:14":"300","w10-tue:15":"12948","w10-tue:16":"C","w10-wed:1":"14580","w10-wed:2":"2436","w10-wed:3":"6426","w10-wed:4":"7957","w10-wed:5":"27045","w10-wed:6":"24072","w10-wed:7":"32760","w10-wed:8":"28350","w10-wed:9":"75388","w10-thu:10":"1404","w10-thu:12":"51328","w10-thu:13":"Yes","w10-thu:15":"36630","w11-sun:1":"37625","w11-sun:2":"1050","w11-sun:3":"2250","w11-sun:4":"11360","w11-sun:5":"1155","w11-mon:8":"714","w11-mon:9":"No","w11-mon:11":"C","w11-mon:12":"D","w11-tue:1":"57","w11-tue:2":"2148","w11-tue:3":"6.2","w11-tue:4":"0.63","w11-tue:5":"1921.2","w11-tue:6":"24","w11-tue:7":"923000","w11-tue:8":"50.01","w11-tue:9":"1.675","w11-tue:10":"84350","w11-tue:11":"2","w11-tue:12":"3","w11-wed:13":"17","w11-wed:14":"Suzi","w11-wed:15":"1180","w11-wed:18":[0,1,2],"w11-wed:19":[1,2,4]},"cfg":null};
+const SECTIONS = DATA.sections;
+const ROSTER = DATA.roster || { classes:[], students:[] };
+const LOOK = {
+  '3-5': `<div class="look"><div>Last year, 23 students in fifth grade were assigned a kindergarten student as a reading buddy. Each student read for 1 hour during each reading session and for a total of 128 sessions. How many hours in all did the fifth-grade students read?
+      <div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:10px">
+        <div class="vert"><span></span><span class="r">128</span><span>×</span><span class="r u">23</span><span></span><span class="r">384</span><span>+</span><span class="r u">2,560</span><span></span><span class="r">2,944</span></div>
+        <div style="font-size:15px;line-height:1.7"><b>Step 1</b> Multiply by the ones. 128 × 3 = 384<br><b>Step 2</b> Multiply by the tens. 128 × 20 = 2,560<br><b>Step 3</b> Add to get the final product. 2,944</div></div>
+      <p style="margin:10px 0 0">The fifth-grade students read for 2,944 hours in all. The answer is reasonable because it is close to the estimate.</p></div>
+      <div class="bubble">Estimate: 130 times 20 is 2,600</div></div>`,
+  '3-6': `<div class="look"><div>Find the product of 304 × 23.
+      <div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:10px">
+        <div class="vert"><span></span><span class="r">304</span><span>×</span><span class="r u">23</span><span></span><span class="r">912</span><span>+</span><span class="r u">6,080</span><span></span><span class="r">6,992</span></div>
+        <div style="font-size:15px;line-height:1.8">Step 1: First, multiply 304 by 3 ones.<br>Step 2: Then, multiply 304 by 2 tens.<br>Step 3: Finally, add to get the final product.</div></div></div>
+      <div class="bubble">A place-value chart can help keep the numbers in the right place!</div></div>`,
+  '3-8': `<div class="look"><div>Hailey’s family is saving money for a vacation. If they save $525 each month for 12 months, how much will they save?
+      <div class="tape" style="margin-left:0;max-width:560px"><div class="tot">s total amount saved</div><div class="bx">${'<div>$525</div>'.repeat(12)}</div></div>
+      <p style="margin:10px 0 0">Write and solve an equation: 12 × 525 = <i>s</i>, so <i>s</i> = 6,300.<br>Hailey’s family will save $6,300 over the 12 months.</p></div>
+      <div class="bubble">The variable <i>s</i> represents the total amount saved. You can draw a bar diagram and write an equation to model the problem.</div></div>`,
+  '4-1': `<div class="look"><div>A builder is installing tiles at a restaurant. The area of each tile is 0.25 square meter. What is the area of 1,000 tiles?
+      <div class="steps" style="margin-top:8px"><span>0.25 × 10</span><span>= 0.25 × 10<sup>1</sup> = 2.5</span><span>0.25 × 100</span><span>= 0.25 × 10<sup>2</sup> = 25</span><span>0.25 × 1,000</span><span>= 0.25 × 10<sup>3</sup> = 250</span></div>
+      <p style="margin:8px 0 0">So, the area of 1,000 tiles is 250 square meters.</p></div>
+      <div class="bubble">Use patterns and place value to help you multiply a decimal by powers of 10.</div></div>`
+};
+const TITLES = { '3-5':'Multiply 3-Digit by 2-Digit Numbers', '3-6':'Multiply Whole Numbers with Zeros', '3-8':'Solve Word Problems Using Multiplication', '4-1':'Multiply Decimals by Powers of 10' };
+const TOPIC = { '3-5':3, '3-6':3, '3-8':3, '4-1':4 };
+
+
+/* ===================== state ===================== */
+const S = { name:'', cls:'', ans:{}, checked:{}, done:{}, open:{} };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const qsOf = s => s.blocks.reduce((a, b) => a.concat(b.qs), []);
+const qid = (s, q) => s.id + ':' + q.n;
+const secOf = id => SECTIONS.filter(s => s.id === id.split(':')[0])[0];
+const qOf = id => { const s = secOf(id); return qsOf(s).filter(q => String(q.n) === id.split(':')[1])[0]; };
+const filled = (q, a) => q.kind === 'multi' ? Array.isArray(a) && a.length > 0 : String(a == null ? '' : a).trim() !== '';
+function toast(m, ms){ const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, ms || 2600); }
+function modal(h){ $('modalBox').innerHTML = h; $('modal').hidden = false; }
+function closeModal(){ $('modal').hidden = true; }
+/* ===================== BACKUP PAGE: works without Google Script =====================
+   Answers are marked here, work is saved on this device, and each submitted part is sent
+   to the teacher's Google Sheet through a Google Form (docs.google.com). */
+const KEYS = DATA.keys, CFG = DATA.cfg;
+const bkKey = (n, c) => 'g5bk:' + (c + '|' + n).toLowerCase();
+const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch(e){ return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const toNumL = s => { const t = String(s == null ? '' : s).replace(/[^0-9.\-]/g, ''); return t === '' || t === '.' ? NaN : Number(t); };
+function rightL(id, a){
+  const q = qOf(id), k = KEYS[id];
+  if (q.kind === 'multi') return (Array.isArray(a) ? a : []).map(Number).sort().join(',') === k.slice().sort().join(',');
+  if (q.kind === 'choice' || q.kind === 'mc') return String(a == null ? '' : a).trim().toLowerCase() === String(k).toLowerCase();
+  return Math.abs(toNumL(a) - Number(k)) < 1e-9;
+}
+function shownL(id){
+  const q = qOf(id), k = KEYS[id];
+  if (q.kind === 'mc') return k + ' · ' + q.opts['ABCD'.indexOf(k)];
+  if (q.kind === 'multi') return k.map(i => 'ABCDE'.charAt(i)).join(', ');
+  if (q.kind === 'choice') return k;
+  return Number(k).toLocaleString('en-US', { maximumFractionDigits:6 }) + (q.unit ? ' ' + q.unit : '');
+}
+function sendOutbox(){
+  if (!CFG) return;
+  const box = lsGet('g5bk:outbox', []);
+  if (!box.length) return;
+  const item = box[0];
+  const body = new URLSearchParams();
+  body.append(CFG.entries.name, item.name); body.append(CFG.entries.cls, item.cls);
+  body.append(CFG.entries.part, item.part); body.append(CFG.entries.answers, JSON.stringify(item.answers));
+  fetch(CFG.action, { method:'POST', mode:'no-cors', body })
+    .then(() => { const b = lsGet('g5bk:outbox', []); b.shift(); lsSet('g5bk:outbox', b); if (b.length) sendOutbox(); })
+    .catch(() => setTimeout(sendOutbox, 20000));
+}
+const API = {
+  getStudent(n, c){ const me = lsGet(bkKey(n, c), {}); return { answers: me.answers || {}, done: me.done || {} }; },
+  saveProgress(n, c, ans){ const me = lsGet(bkKey(n, c), {}); me.answers = ans; lsSet(bkKey(n, c), me); return { ok:true }; },
+  checkAnswer(id, a){ return { right: rightL(id, a) }; },
+  submitPart(n, c, secId, answers){
+    const s = SECTIONS.filter(x => x.id === secId)[0], items = {}; let score = 0;
+    qsOf(s).forEach(q => { const id = qid(s, q), a = answers[id], r = rightL(id, a); if (r) score++;
+      items[q.n] = { right:r, blank:!filled(q, a), answer: r ? '' : shownL(id) }; });
+    const res = { score, total: qsOf(s).length, items, answers, at: new Date().toISOString() };
+    const me = lsGet(bkKey(n, c), {}); me.done = me.done || {}; me.done[secId] = res; lsSet(bkKey(n, c), me);
+    const box = lsGet('g5bk:outbox', []); box.push({ name:n, cls:c, part:secId, answers }); lsSet('g5bk:outbox', box); sendOutbox();
+    return res;
+  }
+};
+function run(fn, ...args){ return new Promise((ok, no) => { try { ok(API[fn](...JSON.parse(JSON.stringify(args)))); } catch(e){ no(e); } }); }
+setTimeout(sendOutbox, 1500);
+window.addEventListener('online', sendOutbox);
+const LS = () => 'g5app:' + (S.cls + '|' + S.name).toLowerCase();
+function saveLocal(){ try { localStorage.setItem(LS(), JSON.stringify({ ans:S.ans, at:Date.now() })); } catch(e){} }
+function readLocal(){ try { return JSON.parse(localStorage.getItem(LS()) || 'null'); } catch(e){ return null; } }
+
+/* ===================== start screen ===================== */
+$('clsSel').innerHTML = '<option value="">—</option>' + ROSTER.classes.map(c => `<option>${esc(c)}</option>`).join('');
+$('plan').innerHTML = SECTIONS.map(s => `<div><span>Week ${s.week} · ${s.day}</span><span>Page ${s.page} · Lesson ${s.lesson}</span></div>`).join('');
+$('nAll').textContent = SECTIONS.length;
+(function nameSearch(){
+  const inp = $('nameIn'), ac = $('ac'); let items = [], hi = -1;
+  const show = () => {
+    const t = inp.value.trim().toLowerCase(), cls = $('clsSel').value;
+    if (!t){ ac.hidden = true; return; }
+    items = ROSTER.students.filter(s => (!cls || s.cls === cls) && s.name.toLowerCase().startsWith(t)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 10);
+    hi = -1;
+    ac.innerHTML = items.length ? items.map((s, i) => `<div data-i="${i}"><span><mark>${esc(s.name.slice(0, t.length))}</mark>${esc(s.name.slice(t.length))}</span><span class="badge">${esc(s.cls)}</span></div>`).join('')
+                                : '<div class="none">No name found. Check the spelling or choose your class.</div>';
+    ac.hidden = false;
+  };
+  inp.oninput = show; inp.onfocus = show; inp.onblur = () => setTimeout(() => ac.hidden = true, 150);
+  inp.onkeydown = e => {
+    const rows = ac.querySelectorAll('[data-i]');
+    if (e.key === 'ArrowDown'){ hi = Math.min(hi + 1, rows.length - 1); e.preventDefault(); }
+    else if (e.key === 'ArrowUp'){ hi = Math.max(hi - 1, 0); e.preventDefault(); }
+    else if (e.key === 'Enter'){ e.preventDefault(); if (items[Math.max(hi, 0)]) pick(items[Math.max(hi, 0)]); return; }
+    else return;
+    rows.forEach((r, i) => r.classList.toggle('hi', i === hi));
+  };
+  ac.onmousedown = e => { const r = e.target.closest('[data-i]'); if (r){ e.preventDefault(); pick(items[+r.dataset.i]); } };
+  $('clsSel').onchange = () => { inp.focus(); show(); };
+})();
+
+async function pick(st){
+  S.name = st.name; S.cls = st.cls;
+  if ($('nameIn')){ $('nameIn').value = st.name; $('clsSel').value = st.cls; $('ac').hidden = true;
+    $('nameHelp').className = 'help ok'; $('nameHelp').textContent = 'Loading your work…'; }
+  let me = { answers:{}, done:{} };
+  try { me = await run('getStudent', S.name, S.cls); }
+  catch(e){ const l = readLocal(); if (l) me.answers = l.ans || {};  }
+  const l = readLocal();
+  S.ans = Object.assign({}, l && l.ans || {}, me.answers || {});
+  S.done = me.done || {};
+  Object.keys(S.done).forEach(id => { Object.assign(S.ans, S.done[id].answers || {}); });
+  renderAll(true);
+  const n = Object.keys(S.done).length;
+  toast(n ? `Welcome back, ${S.name.split(' ')[0]}! You finished ${n} of ${SECTIONS.length} parts.` : `Hello, ${S.name.split(' ')[0]}! Start with the first part.`, 4000);
+}
+
+/* ===================== pages ===================== */
+function nb(id, cls){ return `<input class="b ${cls || ''}" id="i_${id.replace(':', '_')}" inputmode="decimal" autocomplete="off" data-q="${id}" aria-label="Answer">`; }
+function pvChart(){
+  const heads = ['hundred thousands','ten thousands','one thousands','hundreds','tens','ones'];
+  const row = (c, x) => `<tr>${c.map((v, i) => `<td class="${i === 0 && x ? 'g' : ''}">${v}</td>`).join('')}</tr>`;
+  return `<div class="wrapx"><table class="pvc"><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr>${row(['','','','4','0','5'])}${row(['×','','','','3','6'], true)}${row(['','','','','',''])}${row(['','','','','',''])}${row(['','','','','',''])}</table></div>`;
+}
+function qHtml(s, q, locked){
+  const id = qid(s, q);
+  const head = q.text ? `<div class="qline"><span class="num">${q.n}.</span><div class="txt">${q.text}</div></div>` : '';
+  let body = '';
+  switch (q.kind){
+    case 'vert': body = `<div class="qline"><span class="num">${q.n}.</span><div class="vert"><span></span><span class="r">${q.a}</span><span>×</span><span class="r u">${q.b}</span></div></div><div class="ans">${nb(id)}</div>`; break;
+    case 'num':
+      body = (q.side ? `<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start"><div style="flex:1 1 300px;min-width:0">${head}</div><div class="wrapx">${q.side}</div></div>` : head)
+        + (q.pvc ? pvChart() : '') + (q.extra || '')
+        + `<div class="ans">${q.pvc ? '<span class="lab">36 × 405 =</span>' : ''}${nb(id)}${q.unit ? `<span>${q.unit}</span>` : ''}</div>`
+        + (q.hint ? `<div class="hintline">${q.hint}</div>` : ''); break;
+    case 'exp': body = `<div class="qline"><span class="num">${q.n}.</span><span class="inl">${q.before}<sup>${nb(id, 'sm').replace('class="b sm"', 'class="b sm" style="height:34px;width:52px;font-size:17px;vertical-align:4px"')}</sup>${q.after}</span></div>`; break;
+    case 'choice': body = head + `<div class="opts">${q.opts.map(o => `<button class="opt" data-q="${id}" data-v="${esc(o)}"><b></b><span>${esc(o)}</span></button>`).join('')}</div>`; break;
+    case 'mc': body = head + `<div class="opts ${q.col ? 'col' : 'two'}">${(q.col ? [0,1,2,3] : [0,2,1,3]).map(i => `<button class="opt" data-q="${id}" data-v="${'ABCD'[i]}"><b>${'ABCD'[i]}</b><span>${q.opts[i]}</span></button>`).join('')}</div>`; break;
+    case 'multi': body = head + `<div class="opts col">${q.opts.map((o, i) => `<button class="opt sq" data-q="${id}" data-m="${i}"><b>${'ABCDE'[i]}</b><span>${o}</span></button>`).join('')}</div>`; break;
+  }
+  return `<div class="q ${locked ? 'locked' : ''}" id="q_${id.replace(':', '_')}"><span class="mark"></span>${body}
+    ${locked ? '' : `<div class="chk"><button data-check="${id}">Check</button><span class="fb" id="fb_${id.replace(':', '_')}"></span></div>`}</div>`;
+}
+function pageHtml(s, locked){
+  const left = s.page % 2 === 0;
+  let h = `<section class="page ${left ? 'left' : ''}" id="pg_${s.id}"><span class="hwtag">Week ${s.week} · ${s.day} · ${s.plan}</span>`;
+  if (s.first) h += `<div class="page-top"><div class="ap-box"><div class="ap-title">Additional<br>Practice <em>${s.lesson}</em></div><div class="ap-sub">${TITLES[s.lesson]}</div></div></div>
+      <div class="another"><h3>Another Look!</h3>${LOOK[s.lesson]}</div>`;
+  s.blocks.forEach(b => {
+    if (b.dir) h += `<div><div class="dir">${b.dir}</div></div>`;
+    if (b.assess) h += `<div class="assess"><span class="pill"><i>✓</i>Assessment Practice</span><hr></div>`;
+    if (b.data) h += `<div class="wrapx" style="display:flex;justify-content:flex-end;margin-bottom:6px">${b.data}</div>`;
+    h += `<div class="qs ${b.split ? 'split c2' : 'c' + b.cols}">${b.qs.map(q => qHtml(s, q, locked)).join('')}</div>`;
+  });
+  if (!locked) h += `<div class="partsubmit"><p>Finished this part? Submit it to see your score. You can do the other parts later.</p>
+      <button class="tb fill" data-submit="${s.id}">Submit ${s.day} · page ${s.page}</button></div>`;
+  h += `<div class="page-foot">${left ? `<span>${s.page}</span><span class="tl"><b>Topic ${TOPIC[s.lesson]}</b><em>Lesson ${s.lesson}</em></span>`
+                                     : `<span class="tl"><b>Topic ${TOPIC[s.lesson]}</b><em>Lesson ${s.lesson}</em></span><span>${s.page}</span>`}</div></section>`;
+  return h;
+}
+function doneHtml(s){
+  const r = S.done[s.id], pct = Math.round(r.score / r.total * 100), open = S.open[s.id];
+  const wrong = qsOf(s).filter(q => !r.items[q.n].right);
+  return `<div class="done" id="done_${s.id}">
+    <div class="top"><span class="title">✓ Week ${s.week} · ${s.day} · Page ${s.page} — Done</span>
+      <span><span class="sc">${r.score} / ${r.total}</span> <b style="color:var(--muted)">${pct}%</b></span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="tb fill" data-pdf="${s.id}">⬇ Download PDF</button><button class="tb" data-toggle="${s.id}">${open ? 'Hide' : 'Show my answers'}</button></span></div>
+    ${open ? `<div class="rlist">${qsOf(s).map(q => r.items[q.n].right ? `<div><b style="color:var(--ok)">✓ ${q.n}.</b><span>Correct</span></div>`
+        : `<div><b style="color:var(--bad)">✗ ${q.n}.</b><span>${r.items[q.n].blank ? '<i>left blank</i> · ' : ''}Correct answer: <b>${esc(r.items[q.n].answer)}</b></span></div>`).join('')}</div>
+      ${pageHtml(s, true)}` : (wrong.length ? `<div class="note">${wrong.length} to review: questions ${wrong.map(q => q.n).join(', ')}</div>` : '<div class="note">Everything correct!</div>')}
+  </div>`;
+}
+function nextId(){ const s = SECTIONS.filter(x => !S.done[x.id])[0]; return s ? s.id : null; }
+
+function renderAll(scrollToNext){
+  const nx = nextId();
+  let h = `<section class="start"><div class="namebar"><label>Name</label><div class="nm"><input value="${esc(S.name)}" disabled aria-label="Your name"><div class="help ok">✓ ${esc(S.cls)} · <a href="#" id="notMe">Not you?</a></div></div></div></section>`;
+  SECTIONS.forEach(s => {
+    if (S.done[s.id]) h += doneHtml(s);
+    else h += `<div id="wrap_${s.id}" class="${s.id === nx ? 'next' : ''}">${s.id === nx ? `<div style="margin:0 0 8px"><span class="nexttag">▶ Continue here</span></div>` : ''}${pageHtml(s, false)}</div>`;
+  });
+  if (!nx) h += `<div class="finished">🎉 You finished all ${SECTIONS.length} parts. Well done!</div>`;
+  $('main').innerHTML = h;
+  SECTIONS.forEach(s => { qsOf(s).forEach(q => { fill(s, q); paint(s, q); }); });
+  Object.keys(S.done).forEach(id => { if (S.open[id]) paintDone(secOf(id)); });
+  $('notMe').onclick = e => { e.preventDefault(); location.reload(); };
+  counts();
+  if (scrollToNext && nx){ const el = $('wrap_' + nx); if (el) setTimeout(() => el.scrollIntoView({ behavior:'smooth', block:'start' }), 200); }
+}
+function fill(s, q){
+  const id = qid(s, q), a = S.ans[id];
+  document.querySelectorAll(`[data-q="${id}"]`).forEach(el => {
+    if (el.dataset.m != null) el.classList.toggle('on', Array.isArray(a) && a.includes(+el.dataset.m));
+    else if (el.classList.contains('opt')) el.classList.toggle('on', a === el.dataset.v);
+    else el.value = a == null ? '' : a;
+  });
+}
+function paint(s, q){
+  const id = qid(s, q), c = S.checked[id], box = $('q_' + id.replace(':', '_'));
+  if (!box || S.done[s.id]) return;
+  box.classList.toggle('ok', c === true); box.classList.toggle('bad', c === false);
+  box.querySelectorAll('[data-q]').forEach(el => { el.classList.remove('ok', 'bad'); if (c != null && (el.classList.contains('b') || el.classList.contains('on'))) el.classList.add(c ? 'ok' : 'bad'); });
+  const fb = $('fb_' + id.replace(':', '_'));
+  if (fb){ fb.className = 'fb' + (c == null ? '' : c ? ' ok' : ' bad'); fb.textContent = c == null ? '' : c ? ['Correct!','Great job!','You got it!','Excellent!'][q.n % 4] : 'Not yet, try again.'; }
+}
+function paintDone(s){            // colour the locked page of a submitted part
+  const r = S.done[s.id];
+  qsOf(s).forEach(q => {
+    const id = qid(s, q), box = $('q_' + id.replace(':', '_')); if (!box) return;
+    const ok = r.items[q.n].right;
+    box.classList.add(ok ? 'ok' : 'bad');
+    box.querySelectorAll('[data-q]').forEach(el => { if (el.classList.contains('b') || el.classList.contains('on')) el.classList.add(ok ? 'ok' : 'bad'); });
+  });
+}
+function counts(){
+  const n = Object.keys(S.done).length;
+  $('who').textContent = S.name ? S.name + ' · ' + S.cls : 'Choose your name to start';
+  $('nDone').textContent = n; $('fill').style.width = Math.round(n / SECTIONS.length * 100) + '%';
+}
+
+/* ===================== answering ===================== */
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.dataset || !el.dataset.q) return;
+  el.value = el.value.replace(/[^0-9.,]/g, '');
+  setAns(el.dataset.q, el.value);
+});
+document.addEventListener('click', e => {
+  const tg = e.target.closest('[data-toggle]');
+  if (tg){ S.open[tg.dataset.toggle] = !S.open[tg.dataset.toggle]; const s = secOf(tg.dataset.toggle);
+           const box = $('done_' + s.id); box.outerHTML = doneHtml(s); qsOf(s).forEach(q => fill(s, q)); if (S.open[s.id]) paintDone(s); return; }
+  const sb = e.target.closest('[data-submit]'); if (sb) return askSubmit(sb.dataset.submit);
+  const ck = e.target.closest('[data-check]'); if (ck) return check(ck.dataset.check);
+  const o = e.target.closest('.opt'); if (!o || o.closest('.locked')) return;
+  const id = o.dataset.q;
+  if (o.dataset.m != null){
+    const m = new Set(Array.isArray(S.ans[id]) ? S.ans[id] : []), v = +o.dataset.m;
+    m.has(v) ? m.delete(v) : m.add(v); o.classList.toggle('on', m.has(v)); setAns(id, [...m].sort());
+  } else {
+    document.querySelectorAll(`.opt[data-q="${id}"]`).forEach(x => x.classList.toggle('on', x === o)); setAns(id, o.dataset.v);
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.q){ e.preventDefault(); check(e.target.dataset.q); } });
+
+function setAns(id, v){
+  S.ans[id] = v;
+  if (id in S.checked){ delete S.checked[id]; paint(secOf(id), qOf(id)); }
+  saveLocal(); scheduleSave();
+}
+async function check(id){
+  const q = qOf(id), fb = $('fb_' + id.replace(':', '_'));
+  if (!filled(q, S.ans[id])){ fb.className = 'fb bad'; fb.textContent = q.kind === 'multi' ? 'Choose at least one answer first.' : 'Write your answer first.'; return; }
+  fb.className = 'fb wait'; fb.textContent = 'Checking…';
+  const sent = JSON.stringify(S.ans[id]);
+  try {
+    const r = await run('checkAnswer', id, S.ans[id]);
+    if (JSON.stringify(S.ans[id]) !== sent) return;
+    S.checked[id] = r.right; paint(secOf(id), q);
+  } catch(e){ fb.className = 'fb bad'; fb.textContent = 'Could not check. Check your internet and try again.'; }
+}
+
+/* ===================== saving (in the teacher's Sheet, so it works on any device) ===================== */
+function scheduleSave(){ clearTimeout(scheduleSave.h); $('saveState').textContent = '· saving…'; scheduleSave.h = setTimeout(saveNow, 2500); }
+async function saveNow(){
+  try { await run('saveProgress', S.name, S.cls, S.ans); $('saveState').textContent = '· saved ✓'; }
+  catch(e){ $('saveState').textContent = '· not saved (no internet)'; scheduleSave.h = setTimeout(saveNow, 15000); }
+}
+window.addEventListener('pagehide', () => { if (S.name) saveLocal(); });
+
+/* ===================== submit one part ===================== */
+function askSubmit(secId){
+  const s = secOf(secId), qs = qsOf(s), blank = qs.filter(q => !filled(q, S.ans[qid(s, q)])).length;
+  modal(`<h3>Submit ${s.day} · page ${s.page}?</h3>
+    <p>${blank ? `You still have <b style="color:var(--bad)">${blank}</b> question${blank > 1 ? 's' : ''} without an answer in this part.` : 'You answered every question in this part.'}</p>
+    <p class="note">After you submit, you cannot change this part. The other parts stay open for later.</p>
+    <div class="mb"><button class="tb" id="mNo">Go back</button><button class="tb fill" id="mYes">Submit</button></div>`);
+  $('mNo').onclick = closeModal;
+  $('mYes').onclick = async () => {
+    $('mYes').disabled = true; $('mYes').textContent = 'Sending…';
+    const mine = {}; qs.forEach(q => { const id = qid(s, q); if (id in S.ans) mine[id] = S.ans[id]; });
+    for (let i = 0; i < 4; i++){
+      try {
+        const r = await run('submitPart', S.name, S.cls, s.id, mine);
+        closeModal(); S.done[s.id] = r; S.open[s.id] = true;
+        renderAll(false);
+        const box = $('done_' + s.id); if (box) box.scrollIntoView({ behavior:'smooth', block:'start' });
+        const nx = nextId();
+        toast(nx ? `Saved! ${r.score} / ${r.total}. Next time continue with ${secOf(nx).day} · page ${secOf(nx).page}.` : `Saved! ${r.score} / ${r.total}. You finished everything!`, 5000);
+        saveNow(); return;
+      } catch(e){ await new Promise(res => setTimeout(res, 1500 * (i + 1))); }
+    }
+    $('mYes').disabled = false; $('mYes').textContent = 'Try again';
+    toast('Could not send. Check your internet and try again.', 4000);
+  };
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+/* ===================== PDF of one submitted part, for the teacher ===================== */
+const pdfText = s => String(s == null ? '' : s).replace(/[−–]/g, '-').replace(/[’‘]/g, "'").replace(/▢/g, '[ ]').replace(/[^\x20-\x7E\xA0-\xFF×·]/g, '');
+const plainT = h => { const t = document.createElement('div'); t.innerHTML = String(h || '').replace(/<sup>(.*?)<\/sup>/g, '^$1').replace(/<br\s*\/?>/g, ' '); return t.textContent.replace(/\s+/g, ' ').trim(); };
+document.addEventListener('click', e => { const b = e.target.closest('[data-pdf]'); if (b) downloadPDF(b.dataset.pdf); });
+function downloadPDF(secId){
+  if (!window.jspdf){ toast('The PDF maker did not load. Check the internet and try again.', 4000); return; }
+  const s = SECTIONS.filter(x => x.id === secId)[0], r = S.done[secId], qs = qsOf(s);
+  const { jsPDF } = window.jspdf, doc = new jsPDF({ unit:'mm', format:'a4' });
+  const W = 210, H = 297, L = 16, R = W - 22, NAVY = [17, 28, 87], GREEN = [92, 194, 70];
+  const frame = () => { doc.setFillColor(...NAVY); doc.rect(0, 0, W, 7, 'F'); doc.rect(0, H - 7, W, 7, 'F'); doc.setFillColor(...GREEN); doc.rect(W - 9, 7, 9, H - 14, 'F'); };
+  frame();
+  doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Grade 5 Math Homework', L, 20);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(60, 60, 60);
+  doc.text(pdfText('Week ' + s.week + ' · ' + s.day + ' · Page ' + s.page + ' · Lesson ' + s.lesson + ' ' + TITLES[s.lesson]), L, 27);
+  doc.setDrawColor(200, 200, 205); doc.setLineWidth(.6); doc.roundedRect(L, 33, R - L, 30, 3, 3, 'S');
+  doc.setFontSize(11); doc.text('Name', L + 5, 41); doc.text('Class', L + 5, 49); doc.text('Submitted', L + 5, 57);
+  doc.setTextColor(20, 20, 20); doc.setFont('helvetica', 'bold'); doc.text(pdfText(S.name), L + 30, 41); doc.text(pdfText(S.cls), L + 30, 49);
+  doc.setFont('helvetica', 'normal'); doc.text(new Date(r.at).toLocaleString('en-GB'), L + 30, 57);
+  doc.setFillColor(...NAVY); doc.roundedRect(R - 52, 37, 48, 22, 3, 3, 'F'); doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.text(r.score + ' / ' + r.total, R - 28, 48, { align:'center' });
+  doc.setFontSize(11); doc.text(Math.round(r.score / r.total * 100) + '%', R - 28, 55, { align:'center' });
+  let y = 72;
+  const head = () => { doc.setFillColor(...NAVY); doc.rect(L, y, R - L, 7, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+    doc.text('Q', L + 2, y + 4.8); doc.text('Question', L + 10, y + 4.8); doc.text('Result', L + 84, y + 4.8); doc.text('Student answer', L + 102, y + 4.8); doc.text('Correct answer', L + 140, y + 4.8); y += 7; };
+  head();
+  qs.forEach(q => {
+    const it = r.items[q.n], a = (r.answers || {})[qid(s, q)];
+    const qt = pdfText(q.kind === 'vert' ? q.a + ' × ' + q.b : q.kind === 'exp' ? q.before + '^[ ]' + q.after : plainT(q.text));
+    const given = q.kind === 'multi' ? (Array.isArray(a) ? a.map(i => 'ABCDE'.charAt(i)).join(', ') : '') : (a == null ? '' : String(a));
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    const c1 = doc.splitTextToSize(qt, 72), c2 = doc.splitTextToSize(pdfText(given) || '(blank)', 36), c3 = doc.splitTextToSize(it.right ? '' : pdfText(it.answer), R - L - 142);
+    const h = Math.max(c1.length, c2.length, c3.length, 1) * 4 + 2.6;
+    if (y + h > H - 16){ doc.addPage(); frame(); y = 16; head(); }
+    doc.setFillColor(...(it.right ? [225, 243, 232] : [251, 228, 228])); doc.rect(L, y, R - L, h, 'F');
+    doc.setTextColor(30, 30, 30); doc.setFont('helvetica', 'bold'); doc.text(String(q.n), L + 2, y + 4.4);
+    doc.setFont('helvetica', 'normal'); doc.text(c1, L + 10, y + 4.4);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...(it.right ? [29, 127, 70] : [194, 59, 59])); doc.text(it.right ? 'Right' : (it.blank ? 'Blank' : 'Wrong'), L + 84, y + 4.4);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 30); doc.text(c2, L + 102, y + 4.4); if (c3.length) doc.text(c3, L + 140, y + 4.4);
+    y += h;
+  });
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++){ doc.setPage(i); doc.setFontSize(8.5); doc.setTextColor(90, 90, 90); doc.setFont('helvetica', 'normal');
+    doc.text(pdfText(S.name + ' · ' + S.cls + ' · Week ' + s.week + ' ' + s.day + ' · page ' + s.page), L, H - 11); doc.text('Page ' + i + ' of ' + n, R, H - 11, { align:'right' }); }
+  doc.save(('Grade5_' + S.cls + '_' + S.name + '_W' + s.week + '_' + s.day + '_p' + s.page).replace(/[^A-Za-z0-9_]+/g, '_') + '.pdf');
+  toast('PDF saved. Send it to your teacher.', 4000);
+}
+</script>
+</body>
+</html>
