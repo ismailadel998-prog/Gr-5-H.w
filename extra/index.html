@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Roboto+Condensed:wght@700&family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* Layout: a stack of workbook pages (navy bands, green page edge) under a sticky homework bar.
+     One deliberate light look that matches the printed booklet, so every colour is set explicitly. */
+  :root{
+    --navy:#111c57; --green:#5cc246; --desk:#e6e9ef; --paper:#fbfbfa; --ink:#1f2328; --muted:#5d6470;
+    --line:#8b929b; --box:#fffcee; --soft:#e9e9ec; --rule:#c7c9d1; --white:#ffffff;
+    --ok:#1d7f46; --ok-bg:#e1f3e8; --bad:#c23b3b; --bad-bg:#fbe4e4; --mark:#fde58a;
+    --display:"Roboto Condensed","Arial Narrow",Arial,sans-serif;
+    --body:"Open Sans","Segoe UI",system-ui,sans-serif;
+    --hand:"Comic Neue","Comic Sans MS",cursive;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--desk);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:40;background:var(--white)}
+  button,input,select,textarea{font-family:inherit;color:var(--ink)}
+  button{cursor:pointer}
+  :focus-visible{outline:3px solid #2c63c9;outline-offset:2px}
+  sup{font-size:.62em;line-height:0}
+
+  /* ---------- sticky homework bar ---------- */
+  .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--white);box-shadow:0 2px 8px rgba(17,28,87,.10)}
+  .bar .in{max-width:1180px;margin:0 auto;padding-block:10px 12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:8px}
+  .row1{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px}
+  .row1 h1{margin:0;font-size:19px;color:var(--navy);font-weight:700;text-wrap:balance}
+  .prog{flex:1;min-width:180px}
+  .prog .t{font-size:14px;color:var(--muted)}
+  .prog .track{height:10px;background:#e1e4ec;border-radius:99px;overflow:hidden;margin-top:3px}
+  .prog .track i{display:block;height:100%;width:0;background:var(--green);border-radius:99px;transition:width .3s}
+  .days{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+  .day{flex:0 0 auto;border:1.5px solid var(--rule);background:var(--white);border-radius:8px;padding:5px 11px;text-align:left;line-height:1.25;font-size:13px;color:var(--muted)}
+  .day b{display:block;color:var(--ink);font-size:14px}
+  .day.on{background:var(--navy);border-color:var(--navy);color:#cfd5f0}
+  .day.on b{color:var(--white)}
+  .day .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-left:5px;vertical-align:1px}
+
+  /* ---------- workbook page ---------- */
+  main{max-width:1180px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:26px}
+  .page{position:relative;background:var(--paper);box-shadow:0 2px 10px rgba(17,28,87,.12);border-top:16px solid var(--navy);border-bottom:16px solid var(--navy);padding:28px 70px 22px 40px;min-width:0}
+  .page::after{content:"";position:absolute;top:0;bottom:0;right:0;width:30px;background:var(--green)}
+  .page.left{padding:28px 40px 22px 70px}
+  .page.left::after{right:auto;left:0}
+  .hwtag{display:inline-block;background:var(--navy);color:var(--white);font-size:13px;font-weight:600;border-radius:999px;padding:3px 12px;margin-bottom:12px}
+
+  .namebar{display:flex;align-items:flex-end;gap:10px 14px;flex-wrap:wrap;margin-bottom:6px}
+  .namebar label{font-size:18px;color:#333;padding-bottom:6px}
+  .nm{flex:1 1 260px;position:relative;min-width:0}
+  .nm input{width:100%;border:0;border-bottom:1.5px solid #777;background:transparent;font-size:21px;padding:4px 6px;outline:none}
+  .nm input:focus{border-bottom-color:var(--navy);background:#f1f4fb}
+  .help{font-size:14px;color:var(--muted);margin-top:4px}
+  .help.ok{color:var(--ok);font-weight:600}
+  .clsel{border:0;border-bottom:1.5px solid #777;background:transparent;font-size:18px;padding:4px 6px;min-width:110px}
+  .ac{position:absolute;left:0;right:0;top:44px;background:var(--white);border:1px solid #cdd1dc;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:25;max-height:320px;overflow:auto}
+  .ac div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;font-size:17px;cursor:pointer;border-bottom:1px solid #f0f0f2}
+  .ac div:hover,.ac div.hi{background:#e7edf9}
+  .ac mark{background:var(--mark);color:inherit;padding:0}
+  .ac .badge{background:var(--navy);color:var(--white);border-radius:999px;font-size:12px;font-weight:700;padding:2px 9px}
+  .ac .none{color:#888;cursor:default}
+
+  .page-top{display:flex;justify-content:flex-end;margin:10px 0 16px}
+  .ap-box{border:3px solid var(--rule);border-radius:14px;padding:10px 20px 12px;background:var(--white);width:420px;max-width:100%;box-shadow:0 3px 0 #dcdde3}
+  .ap-title{font-family:var(--display);font-weight:700;font-size:30px;line-height:1.15;color:#222}
+  .ap-title em{font-style:normal;font-family:"Arial Black",Arial,sans-serif;font-size:34px}
+  .ap-sub{font-weight:700;color:#4a4a4a;font-size:21px;line-height:1.3;margin-top:4px;text-wrap:balance}
+  .another{border:3px solid #555;border-radius:3px;padding:14px 20px 18px;margin-bottom:22px}
+  .another h3{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:25px}
+  .look{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .look > div{flex:1 1 260px;min-width:0}
+  .bubble{font-family:var(--hand);font-size:17px;line-height:1.3;background:var(--white);border:2px solid var(--green);border-radius:50%;padding:16px 24px;text-align:center;max-width:360px;position:relative;flex:0 1 330px}
+  .bubble::after{content:"";position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);border:10px solid transparent;border-top-color:var(--green);border-bottom:0}
+  .steps{display:grid;grid-template-columns:max-content max-content;column-gap:8px;font-variant-numeric:tabular-nums}
+
+  .dir{display:inline-block;background:var(--soft);border:1.5px solid #9a9aa2;padding:6px 14px;margin:10px 0 14px;font-size:16px}
+  .assess{display:flex;align-items:center;gap:10px;margin:22px 0 8px}
+  .assess .pill{display:flex;align-items:center;gap:8px;background:var(--navy);color:var(--white);font-family:var(--display);font-weight:700;font-size:19px;padding:3px 14px 3px 4px;border-radius:6px}
+  .assess .pill i{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--white);color:var(--navy);align-items:center;justify-content:center;font-style:normal;font-size:15px}
+  .assess hr{flex:1;border:0;border-top:3px solid var(--navy);margin:0}
+  .page-foot{display:flex;justify-content:flex-end;gap:22px;margin-top:28px;font-size:17px}
+  .page.left .page-foot{justify-content:flex-start}
+  .page-foot span+span{font-weight:700}
+  .page-foot .tl b{font-weight:700}
+  .page-foot .tl em{font-style:normal;border-left:1.5px solid var(--ink);margin-left:9px;padding-left:9px}
+
+  /* ---------- questions ---------- */
+  .qs{display:grid;gap:26px 26px;margin-bottom:6px}
+  .c1{grid-template-columns:1fr}
+  .c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .c4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .split{gap:0}
+  .split > .q{padding:18px 24px 22px 0;border-top:1.5px solid #9a9aa2}
+  .split > .q:nth-child(2n){padding-left:24px;padding-right:0;border-left:1.5px solid #9a9aa2}
+  .q{position:relative;min-width:0}
+  .qline{display:flex;gap:10px;align-items:baseline}
+  .num{font-weight:700;min-width:28px;font-size:19px;color:#333;flex:0 0 auto}
+  .tag{font-weight:700;color:#3d4450}
+  .txt{min-width:0}
+  .ans{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin:10px 0 0 38px}
+  .ans .lab{font-size:15px;color:var(--muted)}
+  input.b{border:1.5px solid var(--line);background:var(--box);border-radius:6px;height:44px;width:150px;max-width:100%;font-size:20px;padding:4px 8px;text-align:center;outline:none;font-variant-numeric:tabular-nums}
+  input.b.sm{width:64px}
+  input.b:focus{border-color:#2c63c9;box-shadow:0 0 0 2px rgba(44,99,201,.2)}
+  input.b.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok);font-weight:700}
+  input.b.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad);font-weight:700}
+  .vert{display:inline-grid;grid-template-columns:auto auto;column-gap:8px;font-size:21px;font-variant-numeric:tabular-nums;line-height:1.35}
+  .vert .r{text-align:right;padding-right:6px}
+  .vert .u{border-bottom:2px solid var(--ink)}
+  .inl{font-size:20px;white-space:nowrap}
+  .lines{display:grid;gap:8px;margin:8px 0 0 38px}
+  .lines .l{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:19px;font-variant-numeric:tabular-nums}
+  .lines .l > span:first-child{min-width:140px}
+  .opts{display:flex;flex-wrap:wrap;gap:8px 26px;margin:10px 0 0 38px}
+  .opts.two{display:grid;grid-template-columns:repeat(2,max-content);gap:10px 56px}
+  .opt{border:0;background:none;padding:2px 0;font-size:18px;display:flex;align-items:center;gap:10px;text-align:left}
+  .opt b{display:inline-flex;flex:0 0 auto;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--ink);align-items:center;justify-content:center;font-size:14px;background:var(--white)}
+  .opt.sq b{border-radius:5px}
+  .opt.on b{background:var(--navy);border-color:var(--navy);color:var(--white)}
+  .opt.on.ok b{background:var(--ok);border-color:var(--ok)}
+  .opt.on.bad b{background:var(--bad);border-color:var(--bad)}
+  .opts.col{flex-direction:column;gap:8px}
+  .digits{display:flex;align-items:center;gap:6px;margin:10px 0 0 38px;font-size:20px;flex-wrap:wrap}
+  .digits label{display:flex;align-items:center;gap:4px;font-style:italic}
+
+  .data{border:3px solid var(--rule);border-radius:10px;display:flex;overflow:hidden;width:max-content;max-width:100%;font-size:16px;background:var(--white)}
+  .data .side{background:#777;color:var(--white);writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700;font-size:11px;letter-spacing:2px;padding:6px 3px;text-align:center}
+  .data table{border-collapse:collapse}
+  .data th{padding:4px 16px;border-bottom:1.5px dotted #888}
+  .data td{padding:3px 16px;font-variant-numeric:tabular-nums}
+  .data td+td,.data th+th{border-left:1.5px dotted #888;text-align:center}
+  .data tr:nth-child(odd) td{background:#f1f1f3}
+  .wrapx{overflow-x:auto;max-width:100%}
+  .tape{font-size:14px;font-weight:700;margin:10px 0 0 38px;max-width:420px}
+  .tape .tot{text-align:center;position:relative;padding-bottom:3px;border-bottom:1.5px solid var(--ink);margin-bottom:5px;font-style:italic}
+  .tape .bx{display:flex;border:1.5px solid var(--ink);background:var(--white)}
+  .tape .bx div{flex:1;text-align:center;padding:6px 2px;min-height:30px}
+  .tape .bx div+div{border-left:1.5px solid var(--ink)}
+  .pvc{border-collapse:collapse;font-size:19px;font-weight:700;margin:10px 0 0 38px}
+  .pvc th{font-size:11px;font-weight:600;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg);height:96px;padding:2px 6px;text-align:left}
+  .pvc td{width:34px;height:32px;border:1.5px solid #555;text-align:center;background:var(--white)}
+  .pvc td.g{background:#ddd}
+
+  .chk{display:flex;align-items:center;gap:10px;margin:12px 0 0 38px;min-height:30px;flex-wrap:wrap}
+  .chk button{border:1.5px solid var(--navy);color:var(--navy);background:var(--white);border-radius:6px;padding:4px 16px;font-size:14px;font-weight:600}
+  .chk button:hover{background:#eef1f9}
+  .fb{font-size:14px;font-weight:600}
+  .fb.ok{color:var(--ok)} .fb.bad{color:var(--bad)} .fb.wait{color:var(--muted)}
+  .mark{position:absolute;left:-30px;top:2px;width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center;color:var(--white);font-weight:700;font-size:14px}
+  .q.ok .mark{display:flex;background:var(--ok)} .q.bad .mark{display:flex;background:var(--bad)}
+  .q.ok .mark::before{content:"✓"} .q.bad .mark::before{content:"✗"}
+
+  /* ---------- submit + result ---------- */
+  .submitbox{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--white);border:2px solid var(--navy);border-radius:10px;padding:14px 18px}
+  .submitbox p{margin:0;color:var(--muted);font-size:15px}
+  .tb{border:2px solid var(--navy);background:var(--white);color:var(--navy);border-radius:8px;padding:10px 20px;font-size:17px;font-weight:600}
+  .tb.fill{background:var(--navy);color:var(--white)}
+  .tb:disabled{opacity:.5;cursor:default}
+  .result{background:var(--white);border:3px solid var(--navy);border-radius:12px;padding:18px 22px;display:grid;gap:10px}
+  .result .score{font-family:var(--display);font-size:56px;line-height:1;color:var(--navy);font-weight:700;font-variant-numeric:tabular-nums}
+  .result .who{color:var(--muted);font-weight:600}
+  .result .btns{display:flex;flex-wrap:wrap;gap:10px}
+  .result .btns .tb.fill{font-size:19px;padding:13px 26px}
+  .rlist{display:grid;gap:4px;font-size:15px}
+  .rlist div{display:flex;gap:10px;border-bottom:1px dotted #c3c6cf;padding:4px 0}
+  .rlist b{min-width:58px}
+  .note{font-size:14px;color:var(--muted)}
+
+  .modal{position:fixed;inset:0;background:rgba(10,16,40,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal .box{background:var(--white);padding:22px;max-width:440px;width:100%;border-radius:10px;border-top:10px solid var(--navy)}
+  .modal h3{margin:0 0 8px;font-size:22px;color:var(--navy)}
+  .modal .mb{display:flex;gap:10px;margin-top:16px}.modal .mb button{flex:1}
+  .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--navy);color:var(--white);padding:10px 18px;font-weight:600;z-index:60;border-radius:8px;max-width:90vw;text-align:center}
+
+  @media (max-width:860px){
+    .page,.page.left{padding:22px 34px 20px 16px;border-top-width:11px;border-bottom-width:11px}
+    .page.left{padding:22px 16px 20px 34px}
+    .page::after{width:14px}
+    .c4{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .c3{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .c2,.split{grid-template-columns:1fr}
+    .split > .q:nth-child(2n){padding-left:0;border-left:0}
+  }
+  @media (max-width:520px){
+    body{font-size:16px}
+    .c3,.c4{grid-template-columns:1fr}
+    .ap-title{font-size:25px}.ap-title em{font-size:29px}.ap-sub{font-size:18px}
+    .ans,.lines,.opts,.chk,.digits,.tape,.pvc{margin-left:30px}
+    .mark{left:-26px}
+    .opts.two{grid-template-columns:1fr}
+    .lines .l > span:first-child{min-width:0}
+  }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+
+  /* ---------- worksheet look (same layout as the printed Extra Practice sheet) ---------- */
+  :root{--teal:#123a4d;--yellow:#f2b21b}
+  body{font-family:"DejaVu Sans","Segoe UI",Verdana,system-ui,sans-serif;background:#eef1f3}
+  .bar{border-bottom:4px solid var(--teal)} .row1 h1{color:var(--teal)} .prog .track i{background:var(--teal)}
+  .page.sheet,.start{background:#fff;border:0;box-shadow:0 2px 10px rgba(18,58,77,.10);border-radius:10px;padding:26px 30px 24px}
+  .page.sheet::after,.start::after{display:none}
+  .page.sheet .page-foot{display:none}
+  .sbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;background:var(--teal);color:#fff;border-radius:12px;padding:14px 20px;margin-bottom:18px}
+  .sbar b{font-size:24px} .sbar span{font-size:14px;opacity:.9}
+  .page.sheet .dir{display:flex;align-items:baseline;gap:10px;background:none;border:0;border-left:7px solid var(--yellow);border-radius:3px;padding:2px 0 2px 12px;margin:22px 0 12px;font-size:15px;color:#333}
+  .page.sheet .dir b{font-size:21px;color:var(--teal)}
+  .page.sheet .qs{gap:12px 16px}
+  .page.sheet .q{border:1.5px solid #c9ced3;border-radius:12px;background:#fff;padding:14px 18px 12px}
+  .page.sheet .num{flex:0 0 30px;width:30px;height:30px;min-width:30px;border-radius:50%;background:var(--qc);color:#fff;font-size:15px;display:inline-flex;align-items:center;justify-content:center;transform:translateY(-2px)}
+  .page.sheet .qline{align-items:flex-start;gap:12px}
+  .page.sheet .mark{left:auto;right:10px;top:10px}
+  .page.sheet .qs.c1 .ans{justify-content:flex-end;margin:8px 0 0}
+  .page.sheet .qs.c1 .q:not(.pickq) .ans::before{content:"Answer:";font-weight:700;margin-right:4px}
+  .page.sheet .chk{margin:8px 0 0 42px}
+  .page.sheet .qs.c2 .q{display:grid;grid-template-columns:1fr auto;column-gap:12px;align-items:center}
+  .page.sheet .qs.c2 .q > .chk,.page.sheet .qs.c2 .q > .hintline{grid-column:1 / -1}
+  .page.sheet .qs.c2 .ans{margin:0}
+  .page.sheet .qs.c2 .inl{font-weight:700;font-size:23px}
+  .page.sheet .qs.c2 input.b{width:130px}
+  .page.sheet .hintline{margin-left:42px}
+  .done{border-radius:10px}
+  @media (max-width:520px){ .page.sheet,.start{padding:18px 14px} .sbar b{font-size:20px} .page.sheet .qs.c2 .q{grid-template-columns:1fr} .page.sheet .qs.c2 .ans{margin-top:8px} .page.sheet .chk{margin-left:0} }
+  /* ---------- one-link app additions ---------- */
+  main{grid-template-columns:minmax(0,1fr)}
+  main > *{min-width:0}
+  .tape .bx{overflow-x:auto}
+  .tape .bx div{min-width:34px}
+  .pat{font-size:19px;line-height:1.8;font-variant-numeric:tabular-nums}
+  .hintline{font-size:14px;color:var(--muted);margin:4px 0 0 38px}
+  .start{background:var(--paper);border-top:16px solid var(--navy);border-bottom:16px solid var(--navy);box-shadow:0 2px 10px rgba(17,28,87,.12);padding:26px 28px;position:relative}
+  .start h2{margin:0 0 4px;font-family:var(--display);font-size:30px;color:var(--navy)}
+  .start p{margin:0 0 16px;color:var(--muted)}
+  .plan{display:grid;gap:6px;margin-top:18px}
+  .plan div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted var(--rule);padding:4px 0;font-size:15px}
+  .done{background:var(--white);border:2px solid var(--ok);border-radius:12px;padding:14px 18px;display:grid;gap:8px}
+  .done .top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;justify-content:space-between}
+  .done .title{font-weight:700;color:var(--ok);font-size:18px}
+  .done .sc{font-family:var(--display);font-size:30px;color:var(--navy);font-variant-numeric:tabular-nums}
+  .done .tb{padding:6px 14px;font-size:15px}
+  .next{outline:4px solid var(--green);outline-offset:4px}
+  .nexttag{display:inline-block;background:var(--green);color:var(--white);font-weight:700;border-radius:999px;padding:3px 12px;font-size:14px;margin-left:6px}
+  .partsubmit{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border-top:2px dashed var(--rule);margin-top:24px;padding-top:16px}
+  .partsubmit p{margin:0;color:var(--muted);font-size:15px}
+  .finished{background:var(--ok-bg);border:2px solid var(--ok);border-radius:12px;padding:16px 20px;font-weight:600;color:var(--ok);text-align:center}
+  .saving{font-size:13px;color:var(--muted)}
+  .q.locked input,.q.locked .opt{pointer-events:none}
+  .strat{display:flex;flex-wrap:wrap;gap:10px 26px;border:2px solid #12394d;border-radius:12px;background:#f2f8fa;padding:12px 18px;margin:6px 0 4px}
+  .strat div{display:grid;grid-template-columns:auto auto;column-gap:8px;align-items:center;min-width:150px}
+  .strat span{grid-row:span 2;width:28px;height:28px;border-radius:50%;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .strat small{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header class="bar"><div class="in">
+  <div class="row1">
+    <h1>Grade 5 Math · Extra Practice 3-8 &amp; 4-1</h1>
+    <div class="prog"><div class="t"><span id="who">Choose your name to start</span> · parts done <b id="nDone">0</b> of <b id="nAll">8</b> <span class="saving" id="saveState"></span></div><div class="track"><i id="fill"></i></div></div>
+  </div>
+</div></header>
+
+<main id="main">
+  <section class="start" id="startBox">
+    <h2>Hello! Who are you?</h2>
+    <p>Type the first letters of your first name, then tap your name in the list.</p><p class="note" style="margin-top:-8px">Your work is saved on this device, so continue next time on the same device. After you submit a part, press <b>Download PDF</b> and send it to your teacher.</p>
+    <div class="namebar"><label for="nameIn">Name</label>
+      <div class="nm"><input id="nameIn" placeholder="Start typing your first name..." autocomplete="off" spellcheck="false">
+        <div class="ac" id="ac" hidden></div><div class="help" id="nameHelp">Your work is saved on this device.</div></div>
+      <label for="clsSel">Class</label><select class="clsel" id="clsSel"><option value="">—</option></select></div>
+    <div class="plan" id="plan"></div>
+  </section>
+</main>
+
+<div id="modal" class="modal" hidden><div class="box" id="modalBox"></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+const DATA = {"roster":{"classes":["5A","5B","Test"],"students":[{"cls":"5A","name":"Abdulrahem Mohammad Abdel-Haleem Mohammad Naser"},{"cls":"5A","name":"Radwan Mohammad Eyad Albiriss"},{"cls":"5A","name":"Hamza Ahmed Bahaa Saleh"},{"cls":"5A","name":"Moaaz Ahmed Ragab"},{"cls":"5A","name":"Anas Mohammad Jamal Hotheel"},{"cls":"5A","name":"Karam Muhanad Mahmoud Abunazzal"},{"cls":"5A","name":"Hussien Mohamed Hussien Amin Zekry"},{"cls":"5A","name":"Omar Emad Mohamed Elmokaid"},{"cls":"5A","name":"Kenan Ameen Shayah"},{"cls":"5A","name":"Anas Abdulmaqsoud Yosseri Abdulmaqsoud Hussien"},{"cls":"5A","name":"Abdel Majeed Amjed Abed Alhameed Taneenah"},{"cls":"5A","name":"Odai Motasem Alchikh Ali"},{"cls":"5A","name":"Mohammad Hussein Hafez Abuayyash"},{"cls":"5A","name":"Amir Sahuoni"},{"cls":"5A","name":"Kareem Ihab Mohammad Abedalla"},{"cls":"5A","name":"Youssef Mhd Belal Bachir"},{"cls":"5A","name":"Khaled Tariq Salim Alkayyat"},{"cls":"5A","name":"Omar Mohammad Almokaddam"},{"cls":"5A","name":"Saleh Mohammad Saleh Alsahaf"},{"cls":"5A","name":"Tariq Ammar Sedki"},{"cls":"5A","name":"Mohammad Rashad Mohammad Leloa"},{"cls":"5A","name":"Emomali Gadozoda"},{"cls":"5B","name":"Ryan Sameh Mohamed Osman"},{"cls":"5B","name":"Aws Malek Nayif Manasrah"},{"cls":"5B","name":"Sanad Waseem Ibraheem Al Masri"},{"cls":"5B","name":"Mohammad Bassam Rabhi Al-Arab"},{"cls":"5B","name":"Selim Ahmed Mohamed Elgendy"},{"cls":"5B","name":"Abdallah Amro Monther Alassi"},{"cls":"5B","name":"Jalal Sheikh Turab"},{"cls":"5B","name":"Jawad Sami Mohammad Gharib"},{"cls":"5B","name":"Kareem Mohamad Abo Shar"},{"cls":"5B","name":"Omar Obada Almadani"},{"cls":"5B","name":"Yazan Alhabian"},{"cls":"5B","name":"Sulayman Asim"},{"cls":"5B","name":"Majdaldeen Ahmed Shabareq"},{"cls":"5B","name":"Rayan Rafat Waleed Izzeddin"},{"cls":"5B","name":"Yahia Mohamed Hanafy Abdelsalam"},{"cls":"5B","name":"Yahia Mohammed Ahmed Abdelrazeq"},{"cls":"5B","name":"Mohammad Abdallah Yousef Abedalqader"},{"cls":"5B","name":"Mamdouh Turki A Alotaibi"},{"cls":"5B","name":"Saud Abdulaziz Safar Alodhayani"},{"cls":"5B","name":"Zhenyan Li"},{"cls":"5B","name":"Rashid Mustafa Ishaq Abu Adas"},{"cls":"5B","name":"Mayar Nawar Alshawaf"},{"cls":"5B","name":"Eyad Mohamed Ismail Hamed Mostafa"},{"cls":"Test","name":"Test Student"}]},"sections":[{"id":"w11-thu-a","week":11,"day":"Thursday","page":"Extra","lesson":"3-8","plan":"Extra Practice worksheet · Lesson 3-8 (questions 1–15)","subtitle":"Solve Word Problems Using Multiplication","blocks":[{"html":"\u003cdiv class=\"strat\">\u003cdiv>\u003cspan style=\"background:#2e9c4a\">1\u003c/span>\u003cb style=\"color:#2e9c4a\">FIND\u003c/b>\u003csmall>Say what is asked.\u003c/small>\u003c/div>\u003cdiv>\u003cspan style=\"background:#e08a1e\">2\u003c/span>\u003cb style=\"color:#e08a1e\">WRITE\u003c/b>\u003csmall>Write an equation.\u003c/small>\u003c/div>\u003cdiv>\u003cspan style=\"background:#8e44ad\">3\u003c/span>\u003cb style=\"color:#8e44ad\">SOLVE\u003c/b>\u003csmall>Solve and check.\u003c/small>\u003c/div>\u003c/div>","color":"#2e9c4a","dir":"\u003cb>Practice A\u003c/b> “Times as many”: write an equation and solve. (1–5)","cols":1,"qs":[{"n":1,"kind":"num","text":"Maya has 126 stickers. Her brother has 5 times as many. How many stickers does her brother have?","unit":"stickers"},{"n":2,"kind":"num","text":"A tower is 245 feet tall. A mountain is 8 times as tall as the tower. How tall is the mountain?","unit":"feet"},{"n":3,"kind":"num","text":"A shop sold 312 hats last week. This week it sold 4 times as many hats. How many hats did it sell this week?","unit":"hats"},{"n":4,"kind":"num","text":"Lina walks 35 minutes each day. Her coach runs 12 times as long. How many minutes does the coach run?","unit":"minutes"},{"n":5,"kind":"num","text":"The city library has 1,450 books. The national library has 9 times as many books. How many books does the national library have?","unit":"books"}]},{"color":"#e08a1e","dir":"\u003cb>Practice B\u003c/b> Equal groups. (6–10)","cols":1,"qs":[{"n":6,"kind":"num","text":"A bakery packs 24 rolls in each tray. How many rolls are in 15 trays?","unit":"rolls"},{"n":7,"kind":"num","text":"A theater has 18 rows of seats. Each row has 135 seats. How many seats are there in all?","unit":"seats"},{"n":8,"kind":"num","text":"A factory makes 275 bottles each hour. How many bottles does it make in 12 hours?","unit":"bottles"},{"n":9,"kind":"num","text":"A train has 14 cars. Each car carries 86 passengers. How many passengers can the train carry?","unit":"passengers"},{"n":10,"kind":"num","text":"A gardener plants 32 rows of flowers with 45 flowers in each row. How many flowers does she plant?","unit":"flowers"}]},{"color":"#8e44ad","dir":"\u003cb>Practice C\u003c/b> More than one step. (11–15)","cols":1,"qs":[{"n":11,"kind":"num","text":"Omar buys 12 notebooks at $3 each and 12 pencils at $2 each. How much does he spend in all?","unit":"dollars"},{"n":12,"kind":"num","text":"A baker makes 8 trays of 24 muffins. She sells 150 muffins. How many muffins are left?","unit":"muffins"},{"n":13,"kind":"num","text":"Sam has 36 cards. Dina has 5 times as many cards as Sam. How many cards do they have together?","unit":"cards"},{"n":14,"kind":"num","text":"A box holds 20 books. A school buys 14 boxes and gives away 85 books. How many books are left?","unit":"books"},{"n":15,"kind":"lines","layout":"pick","text":"Which is more: 16 packs of 24 stickers or 12 packs of 30 stickers? How many more?","opts":["16 packs of 24","12 packs of 30"],"lines":[["Which is more?","c"],["How many more?","a"]],"unit":"more stickers"}]}]},{"id":"w11-thu-b","week":11,"day":"Thursday","page":"Extra","lesson":"4-1","plan":"Extra Practice worksheet · Lesson 4-1 (questions 16–30)","subtitle":"Multiply Decimals by Powers of 10","blocks":[{"html":"\u003cdiv class=\"strat\">\u003cdiv>\u003cspan style=\"background:#2e9c4a\">1\u003c/span>\u003cb style=\"color:#2e9c4a\">COUNT\u003c/b>\u003csmall>Count the zeros.\u003c/small>\u003c/div>\u003cdiv>\u003cspan style=\"background:#e08a1e\">2\u003c/span>\u003cb style=\"color:#e08a1e\">SHIFT\u003c/b>\u003csmall>Move the point right.\u003c/small>\u003c/div>\u003cdiv>\u003cspan style=\"background:#8e44ad\">3\u003c/span>\u003cb style=\"color:#8e44ad\">FILL\u003c/b>\u003csmall>Fill with 0.\u003c/small>\u003c/div>\u003cdiv>\u003cspan style=\"background:#c23b3b\">4\u003c/span>\u003cb style=\"color:#c23b3b\">CHECK\u003c/b>\u003csmall>Is it bigger?\u003c/small>\u003c/div>\u003c/div>","color":"#2e9c4a","dir":"\u003cb>Practice D\u003c/b> Move the decimal point right. (16–20)","cols":2,"qs":[{"n":16,"kind":"num","text":"\u003cspan class=\"inl\">7.4 × 10\u003c/span>","unit":""},{"n":17,"kind":"num","text":"\u003cspan class=\"inl\">0.52 × 100\u003c/span>","unit":""},{"n":18,"kind":"num","text":"\u003cspan class=\"inl\">3.917 × 1,000\u003c/span>","unit":""},{"n":19,"kind":"num","text":"\u003cspan class=\"inl\">85.6 × 10\u003csup>2\u003c/sup>\u003c/span>","unit":""},{"n":20,"kind":"num","text":"\u003cspan class=\"inl\">0.063 × 10\u003csup>3\u003c/sup>\u003c/span>","unit":""}]},{"color":"#e08a1e","dir":"\u003cb>Practice E\u003c/b> Fill the empty places with 0. (21–25)","cols":2,"qs":[{"n":21,"kind":"num","text":"\u003cspan class=\"inl\">2.3 × 100\u003c/span>","unit":""},{"n":22,"kind":"num","text":"\u003cspan class=\"inl\">0.9 × 1,000\u003c/span>","unit":""},{"n":23,"kind":"num","text":"\u003cspan class=\"inl\">4.7 × 10\u003csup>4\u003c/sup>\u003c/span>","unit":""},{"n":24,"kind":"num","text":"\u003cspan class=\"inl\">6.1 × 10\u003csup>3\u003c/sup>\u003c/span>","unit":""},{"n":25,"kind":"num","text":"\u003cspan class=\"inl\">0.28 × 10\u003csup>4\u003c/sup>\u003c/span>","unit":""}]},{"color":"#8e44ad","dir":"\u003cb>Practice F\u003c/b> Find the missing exponent or number. (26–30)","cols":2,"qs":[{"n":26,"kind":"exp","before":"0.35 × 10","after":" = 35"},{"n":27,"kind":"exp","before":"10","after":" × 4.8 = 4,800"},{"n":28,"kind":"num","text":"\u003cspan class=\"inl\">7.2 × ▢ = 720\u003c/span>","unit":"","hint":"Write the missing number."},{"n":29,"kind":"exp","before":"1.9 = 10","after":" × 0.019"},{"n":30,"kind":"num","text":"\u003cspan class=\"inl\">0.0504 × ▢ = 50.4\u003c/span>","unit":"","hint":"Write the missing number."}]}]}],"keys":{"w11-thu-a:1":"630","w11-thu-a:2":"1960","w11-thu-a:3":"1248","w11-thu-a:4":"420","w11-thu-a:5":"13050","w11-thu-a:6":"360","w11-thu-a:7":"2430","w11-thu-a:8":"3300","w11-thu-a:9":"1204","w11-thu-a:10":"1440","w11-thu-a:11":"60","w11-thu-a:12":"42","w11-thu-a:13":"216","w11-thu-a:14":"195","w11-thu-a:15":{"c":"16 packs of 24","a":"24"},"w11-thu-b:16":"74","w11-thu-b:17":"52","w11-thu-b:18":"3917","w11-thu-b:19":"8560","w11-thu-b:20":"63","w11-thu-b:21":"230","w11-thu-b:22":"900","w11-thu-b:23":"47000","w11-thu-b:24":"6100","w11-thu-b:25":"2800","w11-thu-b:26":"2","w11-thu-b:27":"3","w11-thu-b:28":"100","w11-thu-b:29":"2","w11-thu-b:30":"1000"},"old":{},"cfg":null};
+const SECTIONS = DATA.sections;
+const ROSTER = DATA.roster || { classes:[], students:[] };
+const LOOK = {
+  '3-5': `<div class="look"><div>Last year, 23 students in fifth grade were assigned a kindergarten student as a reading buddy. Each student read for 1 hour during each reading session and for a total of 128 sessions. How many hours in all did the fifth-grade students read?
+      <div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:10px">
+        <div class="vert"><span></span><span class="r">128</span><span>×</span><span class="r u">23</span><span></span><span class="r">384</span><span>+</span><span class="r u">2,560</span><span></span><span class="r">2,944</span></div>
+        <div style="font-size:15px;line-height:1.7"><b>Step 1</b> Multiply by the ones. 128 × 3 = 384<br><b>Step 2</b> Multiply by the tens. 128 × 20 = 2,560<br><b>Step 3</b> Add to get the final product. 2,944</div></div>
+      <p style="margin:10px 0 0">The fifth-grade students read for 2,944 hours in all. The answer is reasonable because it is close to the estimate.</p></div>
+      <div class="bubble">Estimate: 130 times 20 is 2,600</div></div>`,
+  '3-6': `<div class="look"><div>Find the product of 304 × 23.
+      <div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:10px">
+        <div class="vert"><span></span><span class="r">304</span><span>×</span><span class="r u">23</span><span></span><span class="r">912</span><span>+</span><span class="r u">6,080</span><span></span><span class="r">6,992</span></div>
+        <div style="font-size:15px;line-height:1.8">Step 1: First, multiply 304 by 3 ones.<br>Step 2: Then, multiply 304 by 2 tens.<br>Step 3: Finally, add to get the final product.</div></div></div>
+      <div class="bubble">A place-value chart can help keep the numbers in the right place!</div></div>`,
+  '3-8': `<div class="look"><div>Hailey’s family is saving money for a vacation. If they save $525 each month for 12 months, how much will they save?
+      <div class="tape" style="margin-left:0;max-width:560px"><div class="tot">s total amount saved</div><div class="bx">${'<div>$525</div>'.repeat(12)}</div></div>
+      <p style="margin:10px 0 0">Write and solve an equation: 12 × 525 = <i>s</i>, so <i>s</i> = 6,300.<br>Hailey’s family will save $6,300 over the 12 months.</p></div>
+      <div class="bubble">The variable <i>s</i> represents the total amount saved. You can draw a bar diagram and write an equation to model the problem.</div></div>`,
+  '4-1': `<div class="look"><div>A builder is installing tiles at a restaurant. The area of each tile is 0.25 square meter. What is the area of 1,000 tiles?
+      <div class="steps" style="margin-top:8px"><span>0.25 × 10</span><span>= 0.25 × 10<sup>1</sup> = 2.5</span><span>0.25 × 100</span><span>= 0.25 × 10<sup>2</sup> = 25</span><span>0.25 × 1,000</span><span>= 0.25 × 10<sup>3</sup> = 250</span></div>
+      <p style="margin:8px 0 0">So, the area of 1,000 tiles is 250 square meters.</p></div>
+      <div class="bubble">Use patterns and place value to help you multiply a decimal by powers of 10.</div></div>`
+};
+const TITLES = { '3-5':'Multiply 3-Digit by 2-Digit Numbers', '3-6':'Multiply Whole Numbers with Zeros', '3-8':'Solve Word Problems Using Multiplication', '4-1':'Multiply Decimals by Powers of 10' };
+const TOPIC = { '3-5':3, '3-6':3, '3-8':3, '4-1':4 };
+
+
+/* ===================== state ===================== */
+const S = { name:'', cls:'', ans:{}, checked:{}, checkedParts:{}, done:{}, open:{} };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const qsOf = s => s.blocks.reduce((a, b) => a.concat(b.qs), []);
+const qid = (s, q) => s.id + ':' + q.n;
+const secOf = id => SECTIONS.filter(s => s.id === id.split(':')[0])[0];
+const qOf = id => { const s = secOf(id); return qsOf(s).filter(q => String(q.n) === id.split(':')[1])[0]; };
+const isObj = a => a && typeof a === 'object' && !Array.isArray(a);
+const boxesOf = q => q.lines.filter(l => /^[a-d]$/.test(l[1])).map(l => l[1]);
+const filled = (q, a) => q.kind === 'lines' ? isObj(a) && boxesOf(q).every(p => String(a[p] == null ? '' : a[p]).trim() !== '')
+  : q.kind === 'multi' ? Array.isArray(a) && a.length > 0 : String(a == null ? '' : a).trim() !== '';
+function toast(m, ms){ const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, ms || 2600); }
+function modal(h){ $('modalBox').innerHTML = h; $('modal').hidden = false; }
+function closeModal(){ $('modal').hidden = true; }
+/* ===================== BACKUP PAGE: works without Google Script =====================
+   Answers are marked here, work is saved on this device, and (when a results form is set up)
+   each submitted part is sent to the teacher's Google Sheet through a Google Form. */
+const KEYS = DATA.keys, OLD = DATA.old || {}, CFG = DATA.cfg;
+const bkKey = (n, c) => 'g5xbk:' + (c + '|' + n).toLowerCase();
+const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch(e){ return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const toNumL = s => { const t = String(s == null ? '' : s).replace(/[^0-9.\-]/g, ''); return t === '' || t === '.' ? NaN : Number(t); };
+const sameL = (a, k) => /^[0-9.]+$/.test(String(k)) ? Math.abs(toNumL(a) - Number(k)) < 1e-9 : String(a == null ? '' : a).trim().toLowerCase() === String(k).toLowerCase();
+function partsL(id, a){
+  const q = qOf(id), k = KEYS[id], ps = Object.keys(k), out = {};
+  if (!isObj(a)){ const ok = String(a == null ? '' : a).trim() !== '' && sameL(a, OLD[id]); ps.forEach(p => out[p] = ok); return out; }
+  if (q.anyOrder){
+    const got = ps.map(p => toNumL(a[p])).sort((x, y) => x - y), want = ps.map(p => Number(k[p])).sort((x, y) => x - y);
+    ps.forEach(p => { out[p] = want.some(w => sameL(a[p], w)); });
+    if (!got.every((v, i) => Math.abs(v - want[i]) < 1e-9)) ps.forEach(p => { if (out[p] && ps.filter(x => sameL(a[x], a[p])).length > 1) out[p] = false; });
+    return out;
+  }
+  ps.forEach(p => out[p] = sameL(a[p], k[p])); return out;
+}
+function rightL(id, a){
+  const q = qOf(id), k = KEYS[id];
+  if (q.kind === 'lines'){ const pr = partsL(id, a); return Object.keys(pr).every(p => pr[p]); }
+  if (q.kind === 'multi') return (Array.isArray(a) ? a : []).map(Number).sort().join(',') === k.slice().sort().join(',');
+  if (q.kind === 'choice' || q.kind === 'mc') return String(a == null ? '' : a).trim().toLowerCase() === String(k).toLowerCase();
+  return sameL(a, k);
+}
+const fmtL = v => /^[0-9.]+$/.test(String(v)) ? Number(v).toLocaleString('en-US', { maximumFractionDigits:6 }) : String(v);
+function shownL(id){
+  const q = qOf(id), k = KEYS[id];
+  if (q.kind === 'lines'){
+    if (q.layout === 'digits') return 'a = 8, b = 2, c = 6, d = 4 (802 × 64 = 51,328)';
+    if (q.layout === 'pick') return k.c + ' · ' + fmtL(k.a) + ' ' + (q.unit || '');
+    if (q.layout === 'table') return '0.1 gallon → ' + fmtL(k.a) + ' miles · 10 gallons → ' + fmtL(k.b) + ' miles';
+    return Object.keys(k).map(p => fmtL(k[p])).join(' · ');
+  }
+  if (q.kind === 'mc') return k + ' · ' + q.opts['ABCD'.indexOf(k)];
+  if (q.kind === 'multi') return k.map(i => 'ABCDE'.charAt(i)).join(', ');
+  if (q.kind === 'choice') return k;
+  return fmtL(k) + (q.unit ? ' ' + q.unit : '');
+}
+function sendOutbox(){
+  if (!CFG) return;
+  const box = lsGet('g5xbk:outbox', []);
+  if (!box.length) return;
+  const item = box[0], body = new URLSearchParams();
+  body.append(CFG.entries.name, item.name); body.append(CFG.entries.cls, item.cls);
+  body.append(CFG.entries.part, item.part); body.append(CFG.entries.answers, JSON.stringify(item.answers));
+  fetch(CFG.action, { method:'POST', mode:'no-cors', body })
+    .then(() => { const b = lsGet('g5xbk:outbox', []); b.shift(); lsSet('g5xbk:outbox', b); if (b.length) sendOutbox(); })
+    .catch(() => setTimeout(sendOutbox, 20000));
+}
+const API = {
+  getStudent(n, c){ const me = lsGet(bkKey(n, c), {}); return { answers: me.answers || {}, done: me.done || {} }; },
+  saveProgress(n, c, ans){ const me = lsGet(bkKey(n, c), {}); me.answers = ans; lsSet(bkKey(n, c), me); return { ok:true }; },
+  checkAnswer(id, a){ const q = qOf(id); return { right: rightL(id, a), parts: q.kind === 'lines' ? partsL(id, a) : null }; },
+  submitPart(n, c, secId, answers){
+    const s = SECTIONS.filter(x => x.id === secId)[0], items = {}; let score = 0;
+    qsOf(s).forEach(q => { const id = qid(s, q), a = answers[id], r = rightL(id, a); if (r) score++;
+      items[q.n] = { right:r, blank:!filled(q, a), answer: r ? '' : shownL(id) };
+      if (q.kind === 'lines') items[q.n].parts = partsL(id, a); });
+    const res = { score, total: qsOf(s).length, items, answers, at: new Date().toISOString() };
+    const me = lsGet(bkKey(n, c), {}); me.done = me.done || {}; me.done[secId] = res; lsSet(bkKey(n, c), me);
+    if (CFG){ const box = lsGet('g5xbk:outbox', []); box.push({ name:n, cls:c, part:secId, answers }); lsSet('g5xbk:outbox', box); sendOutbox(); }
+    return res;
+  }
+};
+// A part submitted on this device BEFORE the boxes changed is re-marked the same way the teacher's Sheet does.
+function remarkOld(me){ Object.keys(me.done || {}).forEach(secId => { const r = me.done[secId]; const s = SECTIONS.filter(x => x.id === secId)[0];
+  if (!s || !r.answers) return; qsOf(s).forEach(q => { if (q.kind === 'lines' && r.items[q.n] && !r.items[q.n].parts){ const id = qid(s, q); r.items[q.n].parts = partsL(id, r.answers[id]); } }); }); return me; }
+const _getStudent = API.getStudent; API.getStudent = (n, c) => { const me = remarkOld(lsGet(bkKey(n, c), {})); return { answers: me.answers || {}, done: me.done || {} }; };
+function run(fn, ...args){ return new Promise((ok, no) => { try { ok(API[fn](...JSON.parse(JSON.stringify(args)))); } catch(e){ no(e); } }); }
+setTimeout(sendOutbox, 1500);
+window.addEventListener('online', sendOutbox);
+const LS = () => 'g5extra:' + (S.cls + '|' + S.name).toLowerCase();
+function saveLocal(){ try { localStorage.setItem(LS(), JSON.stringify({ ans:S.ans, at:Date.now() })); } catch(e){} }
+function readLocal(){ try { return JSON.parse(localStorage.getItem(LS()) || 'null'); } catch(e){ return null; } }
+
+/* ===================== start screen ===================== */
+$('clsSel').innerHTML = '<option value="">—</option>' + ROSTER.classes.map(c => `<option>${esc(c)}</option>`).join('');
+$('plan').innerHTML = SECTIONS.map(s => `<div><span>Week ${s.week} · ${s.day}</span><span>Page ${s.page} · Lesson ${s.lesson}</span></div>`).join('');
+$('nAll').textContent = SECTIONS.length;
+(function nameSearch(){
+  const inp = $('nameIn'), ac = $('ac'); let items = [], hi = -1;
+  const show = () => {
+    const t = inp.value.trim().toLowerCase(), cls = $('clsSel').value;
+    if (!t){ ac.hidden = true; return; }
+    items = ROSTER.students.filter(s => (!cls || s.cls === cls) && s.name.toLowerCase().startsWith(t)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 10);
+    hi = -1;
+    ac.innerHTML = items.length ? items.map((s, i) => `<div data-i="${i}"><span><mark>${esc(s.name.slice(0, t.length))}</mark>${esc(s.name.slice(t.length))}</span><span class="badge">${esc(s.cls)}</span></div>`).join('')
+                                : '<div class="none">No name found. Check the spelling or choose your class.</div>';
+    ac.hidden = false;
+  };
+  inp.oninput = show; inp.onfocus = show; inp.onblur = () => setTimeout(() => ac.hidden = true, 150);
+  inp.onkeydown = e => {
+    const rows = ac.querySelectorAll('[data-i]');
+    if (e.key === 'ArrowDown'){ hi = Math.min(hi + 1, rows.length - 1); e.preventDefault(); }
+    else if (e.key === 'ArrowUp'){ hi = Math.max(hi - 1, 0); e.preventDefault(); }
+    else if (e.key === 'Enter'){ e.preventDefault(); if (items[Math.max(hi, 0)]) pick(items[Math.max(hi, 0)]); return; }
+    else return;
+    rows.forEach((r, i) => r.classList.toggle('hi', i === hi));
+  };
+  ac.onmousedown = e => { const r = e.target.closest('[data-i]'); if (r){ e.preventDefault(); pick(items[+r.dataset.i]); } };
+  $('clsSel').onchange = () => { inp.focus(); show(); };
+})();
+
+async function pick(st){
+  S.name = st.name; S.cls = st.cls;
+  if ($('nameIn')){ $('nameIn').value = st.name; $('clsSel').value = st.cls; $('ac').hidden = true;
+    $('nameHelp').className = 'help ok'; $('nameHelp').textContent = 'Loading your work…'; }
+  let me = { answers:{}, done:{} };
+  try { me = await run('getStudent', S.name, S.cls); }
+  catch(e){ const l = readLocal(); if (l) me.answers = l.ans || {};  }
+  const l = readLocal();
+  S.ans = Object.assign({}, l && l.ans || {}, me.answers || {});
+  S.done = me.done || {};
+  Object.keys(S.done).forEach(id => { Object.assign(S.ans, S.done[id].answers || {}); });
+  renderAll(true);
+  const n = Object.keys(S.done).length;
+  toast(n ? `Welcome back, ${S.name.split(' ')[0]}! You finished ${n} of ${SECTIONS.length} parts.` : `Hello, ${S.name.split(' ')[0]}! Start with the first part.`, 4000);
+}
+
+/* ===================== pages ===================== */
+function nb(id, cls, p){ return `<input class="b ${cls || ''}" id="i_${id.replace(':', '_')}${p ? '_' + p : ''}" inputmode="decimal" autocomplete="off" data-q="${id}"${p ? ` data-p="${p}"` : ''} aria-label="Answer">`; }
+function pvChart(){
+  const heads = ['hundred thousands','ten thousands','one thousands','hundreds','tens','ones'];
+  const row = (c, x) => `<tr>${c.map((v, i) => `<td class="${i === 0 && x ? 'g' : ''}">${v}</td>`).join('')}</tr>`;
+  return `<div class="wrapx"><table class="pvc"><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr>${row(['','','','4','0','5'])}${row(['×','','','','3','6'], true)}${row(['','','','','',''])}${row(['','','','','',''])}${row(['','','','','',''])}</table></div>`;
+}
+function qHtml(s, q, locked){
+  const id = qid(s, q);
+  const head = q.text ? `<div class="qline"><span class="num">${q.n}</span><div class="txt">${q.text}</div></div>` : '';
+  let body = '';
+  switch (q.kind){
+    case 'vert': body = `<div class="qline"><span class="num">${q.n}</span><div class="vert"><span></span><span class="r">${q.a}</span><span>×</span><span class="r u">${q.b}</span></div></div><div class="ans">${nb(id)}</div>`; break;
+    case 'num':
+      body = (q.side ? `<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start"><div style="flex:1 1 300px;min-width:0">${head}</div><div class="wrapx">${q.side}</div></div>` : head)
+        + (q.pvc ? pvChart() : '') + (q.extra || '')
+        + `<div class="ans">${q.pvc ? '<span class="lab">36 × 405 =</span>' : ''}${nb(id)}${q.unit ? `<span>${q.unit}</span>` : ''}</div>`
+        + (q.hint ? `<div class="hintline">${q.hint}</div>` : ''); break;
+    case 'exp': body = `<div class="qline"><span class="num">${q.n}</span><span class="inl">${q.before}<sup>${nb(id, 'sm').replace('class="b sm"', 'class="b sm" style="height:34px;width:52px;font-size:17px;vertical-align:4px"')}</sup>${q.after}</span></div>`; break;
+    case 'choice': body = head + `<div class="opts">${q.opts.map(o => `<button class="opt" data-q="${id}" data-v="${esc(o)}"><b></b><span>${esc(o)}</span></button>`).join('')}</div>`; break;
+    case 'mc': body = head + `<div class="opts ${q.col ? 'col' : 'two'}">${(q.col ? [0,1,2,3] : [0,2,1,3]).map(i => `<button class="opt" data-q="${id}" data-v="${'ABCD'[i]}"><b>${'ABCD'[i]}</b><span>${q.opts[i]}</span></button>`).join('')}</div>`; break;
+    case 'lines':
+      if (q.layout === 'pick') body = head + `<div class="opts">${q.opts.map(o => `<button class="opt" data-q="${id}" data-p="c" data-v="${esc(o)}"><b></b><span>${esc(o)}</span></button>`).join('')}</div>
+          <div class="ans"><span class="lab">How many more?</span>${nb(id, '', 'a')}${q.unit ? `<span>${q.unit}</span>` : ''}</div>`;
+      else if (q.layout === 'digits') body = head + `<div class="ans" style="font-size:20px;font-style:italic;gap:6px">
+          <span>a</span>${nb(id, 'sm', 'a')}<span style="font-style:normal">0</span><span>b</span>${nb(id, 'sm', 'b')}
+          <span style="font-style:normal;margin:0 8px">×</span><span>c</span>${nb(id, 'sm', 'c')}<span>d</span>${nb(id, 'sm', 'd')}</div>
+          <div class="hintline">Write one digit in each box: 2, 4, 6 or 8.</div>`;
+      else if (q.layout === 'table') body = head + `<div class="wrapx" style="margin:10px 0 0 38px"><div class="data"><table><tr><th>Gallons</th><th>Miles</th></tr>${q.lines.map(([g, m]) =>
+          `<tr><td>${g}</td><td>${/^[a-d]$/.test(m) ? nb(id, 'sm', m).replace('class="b sm"', 'class="b sm" style="width:110px"') : m}</td></tr>`).join('')}</table></div></div>`;
+      else body = (head || `<div class="qline"><span class="num">${q.n}</span><div></div></div>`) +
+          `<div class="lines" style="display:grid;gap:8px;margin:8px 0 0 38px">${q.lines.map(([l, p]) => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:19px"><span style="min-width:150px">${l}</span>${nb(id, '', p)}</div>`).join('')}</div>`;
+      break;
+    case 'multi': body = head + `<div class="opts col">${q.opts.map((o, i) => `<button class="opt sq" data-q="${id}" data-m="${i}"><b>${'ABCDE'[i]}</b><span>${o}</span></button>`).join('')}</div>`; break;
+  }
+  return `<div class="q ${locked ? 'locked' : ''} ${q.layout === 'pick' ? 'pickq' : ''}" id="q_${id.replace(':', '_')}"><span class="mark"></span>${body}
+    ${locked ? '' : `<div class="chk"><button data-check="${id}">Check</button><span class="fb" id="fb_${id.replace(':', '_')}"></span></div>`}</div>`;
+}
+function pageHtml(s, locked){
+  const left = s.page % 2 === 0;
+  let h = `<section class="page sheet" id="pg_${s.id}"><div class="sbar"><b>Lesson ${s.lesson} &nbsp;·&nbsp; Extra Practice</b><span>${s.subtitle || ''}</span></div>`;
+  if (s.first) h += `<div class="page-top"><div class="ap-box"><div class="ap-title">Additional<br>Practice <em>${s.lesson}</em></div><div class="ap-sub">${TITLES[s.lesson]}</div></div></div>
+      <div class="another"><h3>Another Look!</h3>${LOOK[s.lesson]}</div>`;
+  s.blocks.forEach(b => {
+    if (b.html) h += b.html;
+    if (b.dir) h += `<div><div class="dir">${b.dir}</div></div>`;
+    if (b.assess) h += `<div class="assess"><span class="pill"><i>✓</i>Assessment Practice</span><hr></div>`;
+    if (b.data) h += `<div class="wrapx" style="display:flex;justify-content:flex-end;margin-bottom:6px">${b.data}</div>`;
+    h += `<div class="qs ${b.split ? 'split c2' : 'c' + b.cols}" style="--qc:${b.color || 'var(--navy)'}">${b.qs.map(q => qHtml(s, q, locked)).join('')}</div>`;
+  });
+  if (!locked) h += `<div class="partsubmit"><p>Finished this part? Submit it to see your score. You can do the other parts later.</p>
+      <button class="tb fill" data-submit="${s.id}">Submit ${s.day} · page ${s.page}</button></div>`;
+  h += `<div class="page-foot">${left ? `<span>${s.page}</span><span class="tl"><b>Topic ${TOPIC[s.lesson]}</b><em>Lesson ${s.lesson}</em></span>`
+                                     : `<span class="tl"><b>Topic ${TOPIC[s.lesson]}</b><em>Lesson ${s.lesson}</em></span><span>${s.page}</span>`}</div></section>`;
+  return h;
+}
+function doneHtml(s){
+  const r = S.done[s.id], pct = Math.round(r.score / r.total * 100), open = S.open[s.id];
+  const wrong = qsOf(s).filter(q => !r.items[q.n].right);
+  return `<div class="done" id="done_${s.id}">
+    <div class="top"><span class="title">✓ Week ${s.week} · ${s.day} · Page ${s.page} — Done</span>
+      <span><span class="sc">${r.score} / ${r.total}</span> <b style="color:var(--muted)">${pct}%</b></span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="tb fill" data-pdf="${s.id}">⬇ Download PDF</button><button class="tb" data-toggle="${s.id}">${open ? 'Hide' : 'Show my answers'}</button></span></div>
+    ${open ? `<div class="rlist">${qsOf(s).map(q => r.items[q.n].right ? `<div><b style="color:var(--ok)">✓ ${q.n}.</b><span>Correct</span></div>`
+        : `<div><b style="color:var(--bad)">✗ ${q.n}.</b><span>${r.items[q.n].blank ? '<i>left blank</i> · ' : ''}Correct answer: <b>${esc(r.items[q.n].answer)}</b></span></div>`).join('')}</div>
+      ${pageHtml(s, true)}` : (wrong.length ? `<div class="note">${wrong.length} to review: questions ${wrong.map(q => q.n).join(', ')}</div>` : '<div class="note">Everything correct!</div>')}
+  </div>`;
+}
+function nextId(){ const s = SECTIONS.filter(x => !S.done[x.id])[0]; return s ? s.id : null; }
+
+function renderAll(scrollToNext){
+  const nx = nextId();
+  let h = `<section class="start"><div class="namebar"><label>Name</label><div class="nm"><input value="${esc(S.name)}" disabled aria-label="Your name"><div class="help ok">✓ ${esc(S.cls)} · <a href="#" id="notMe">Not you?</a></div></div></div></section>`;
+  SECTIONS.forEach(s => {
+    if (S.done[s.id]) h += doneHtml(s);
+    else h += `<div id="wrap_${s.id}" class="${s.id === nx ? 'next' : ''}">${s.id === nx ? `<div style="margin:0 0 8px"><span class="nexttag">▶ Continue here</span></div>` : ''}${pageHtml(s, false)}</div>`;
+  });
+  if (!nx) h += `<div class="finished">🎉 You finished all ${SECTIONS.length} parts. Well done!</div>`;
+  $('main').innerHTML = h;
+  SECTIONS.forEach(s => { qsOf(s).forEach(q => { fill(s, q); paint(s, q); }); });
+  Object.keys(S.done).forEach(id => { if (S.open[id]) paintDone(secOf(id)); });
+  $('notMe').onclick = e => { e.preventDefault(); location.reload(); };
+  counts();
+  if (scrollToNext && nx){ const el = $('wrap_' + nx); if (el) setTimeout(() => el.scrollIntoView({ behavior:'smooth', block:'start' }), 200); }
+}
+function fill(s, q){
+  const id = qid(s, q), a = S.ans[id];
+  document.querySelectorAll(`[data-q="${id}"]`).forEach(el => {
+    if (el.dataset.m != null) el.classList.toggle('on', Array.isArray(a) && a.includes(+el.dataset.m));
+    else if (el.classList.contains('opt')) el.classList.toggle('on', el.dataset.p ? isObj(a) && a[el.dataset.p] === el.dataset.v : a === el.dataset.v);
+    else if (el.dataset.p){ const last = boxesOf(q).slice(-1)[0];          // an old one-box answer goes in the last box
+      el.value = isObj(a) ? (a[el.dataset.p] == null ? '' : a[el.dataset.p]) : (a != null && el.dataset.p === last ? a : ''); }
+    else el.value = a == null ? '' : a;
+  });
+}
+function paint(s, q){
+  const id = qid(s, q), c = S.checked[id], box = $('q_' + id.replace(':', '_'));
+  if (!box || S.done[s.id]) return;
+  box.classList.toggle('ok', c === true); box.classList.toggle('bad', c === false);
+  const pr = S.checkedParts[id];
+  box.querySelectorAll('[data-q]').forEach(el => { el.classList.remove('ok', 'bad');
+    if (c == null || !(el.classList.contains('b') || el.classList.contains('on'))) return;
+    const ok = el.dataset.p && pr ? pr[el.dataset.p] : c; el.classList.add(ok ? 'ok' : 'bad'); });
+  const fb = $('fb_' + id.replace(':', '_'));
+  if (fb){ fb.className = 'fb' + (c == null ? '' : c ? ' ok' : ' bad'); fb.textContent = c == null ? '' : c ? ['Correct!','Great job!','You got it!','Excellent!'][q.n % 4] : 'Not yet, try again.'; }
+}
+function paintDone(s){            // colour the locked page of a submitted part
+  const r = S.done[s.id];
+  qsOf(s).forEach(q => {
+    const id = qid(s, q), box = $('q_' + id.replace(':', '_')); if (!box) return;
+    const ok = r.items[q.n].right;
+    box.classList.add(ok ? 'ok' : 'bad');
+    const pr = r.items[q.n].parts;
+    box.querySelectorAll('[data-q]').forEach(el => { if (el.classList.contains('b') || el.classList.contains('on')) el.classList.add((el.dataset.p && pr ? pr[el.dataset.p] : ok) ? 'ok' : 'bad'); });
+  });
+}
+function counts(){
+  const n = Object.keys(S.done).length;
+  $('who').textContent = S.name ? S.name + ' · ' + S.cls : 'Choose your name to start';
+  $('nDone').textContent = n; $('fill').style.width = Math.round(n / SECTIONS.length * 100) + '%';
+}
+
+/* ===================== answering ===================== */
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.dataset || !el.dataset.q) return;
+  el.value = el.value.replace(/[^0-9.,]/g, '');
+  if (el.dataset.p){ const cur = isObj(S.ans[el.dataset.q]) ? S.ans[el.dataset.q] : {}; setAns(el.dataset.q, Object.assign({}, cur, { [el.dataset.p]: el.value })); }
+  else setAns(el.dataset.q, el.value);
+});
+document.addEventListener('click', e => {
+  const tg = e.target.closest('[data-toggle]');
+  if (tg){ S.open[tg.dataset.toggle] = !S.open[tg.dataset.toggle]; const s = secOf(tg.dataset.toggle);
+           const box = $('done_' + s.id); box.outerHTML = doneHtml(s); qsOf(s).forEach(q => fill(s, q)); if (S.open[s.id]) paintDone(s); return; }
+  const sb = e.target.closest('[data-submit]'); if (sb) return askSubmit(sb.dataset.submit);
+  const ck = e.target.closest('[data-check]'); if (ck) return check(ck.dataset.check);
+  const o = e.target.closest('.opt'); if (!o || o.closest('.locked')) return;
+  const id = o.dataset.q;
+  if (o.dataset.m != null){
+    const m = new Set(Array.isArray(S.ans[id]) ? S.ans[id] : []), v = +o.dataset.m;
+    m.has(v) ? m.delete(v) : m.add(v); o.classList.toggle('on', m.has(v)); setAns(id, [...m].sort());
+  } else {
+    if (o.dataset.p){ document.querySelectorAll(`.opt[data-q="${id}"][data-p="${o.dataset.p}"]`).forEach(x => x.classList.toggle('on', x === o));
+      const cur = isObj(S.ans[id]) ? S.ans[id] : {}; setAns(id, Object.assign({}, cur, { [o.dataset.p]: o.dataset.v })); }
+    else { document.querySelectorAll(`.opt[data-q="${id}"]`).forEach(x => x.classList.toggle('on', x === o)); setAns(id, o.dataset.v); }
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.q){ e.preventDefault(); check(e.target.dataset.q); } });
+
+function setAns(id, v){
+  S.ans[id] = v;
+  if (id in S.checked){ delete S.checked[id]; delete S.checkedParts[id]; paint(secOf(id), qOf(id)); }
+  saveLocal(); scheduleSave();
+}
+async function check(id){
+  const q = qOf(id), fb = $('fb_' + id.replace(':', '_'));
+  if (!filled(q, S.ans[id])){ fb.className = 'fb bad'; fb.textContent = q.kind === 'multi' ? 'Choose at least one answer first.' : q.kind === 'lines' ? 'Fill in every box first.' : 'Write your answer first.'; return; }
+  fb.className = 'fb wait'; fb.textContent = 'Checking…';
+  const sent = JSON.stringify(S.ans[id]);
+  try {
+    const r = await run('checkAnswer', id, S.ans[id]);
+    if (JSON.stringify(S.ans[id]) !== sent) return;
+    S.checked[id] = r.right; S.checkedParts[id] = r.parts || null; paint(secOf(id), q);
+  } catch(e){ fb.className = 'fb bad'; fb.textContent = 'Could not check. Check your internet and try again.'; }
+}
+
+/* ===================== saving (in the teacher's Sheet, so it works on any device) ===================== */
+function scheduleSave(){ clearTimeout(scheduleSave.h); $('saveState').textContent = '· saving…'; scheduleSave.h = setTimeout(saveNow, 2500); }
+async function saveNow(){
+  try { await run('saveProgress', S.name, S.cls, S.ans); $('saveState').textContent = '· saved ✓'; }
+  catch(e){ $('saveState').textContent = '· not saved (no internet)'; scheduleSave.h = setTimeout(saveNow, 15000); }
+}
+window.addEventListener('pagehide', () => { if (S.name) saveLocal(); });
+
+/* ===================== submit one part ===================== */
+function askSubmit(secId){
+  const s = secOf(secId), qs = qsOf(s), blank = qs.filter(q => !filled(q, S.ans[qid(s, q)])).length;
+  modal(`<h3>Submit ${s.day} · page ${s.page}?</h3>
+    <p>${blank ? `You still have <b style="color:var(--bad)">${blank}</b> question${blank > 1 ? 's' : ''} without an answer in this part.` : 'You answered every question in this part.'}</p>
+    <p class="note">After you submit, you cannot change this part. The other parts stay open for later.</p>
+    <div class="mb"><button class="tb" id="mNo">Go back</button><button class="tb fill" id="mYes">Submit</button></div>`);
+  $('mNo').onclick = closeModal;
+  $('mYes').onclick = async () => {
+    $('mYes').disabled = true; $('mYes').textContent = 'Sending…';
+    const mine = {}; qs.forEach(q => { const id = qid(s, q); if (id in S.ans) mine[id] = S.ans[id]; });
+    for (let i = 0; i < 4; i++){
+      try {
+        const r = await run('submitPart', S.name, S.cls, s.id, mine);
+        closeModal(); S.done[s.id] = r; S.open[s.id] = true;
+        renderAll(false);
+        const box = $('done_' + s.id); if (box) box.scrollIntoView({ behavior:'smooth', block:'start' });
+        const nx = nextId();
+        toast(nx ? `Saved! ${r.score} / ${r.total}. Next time continue with ${secOf(nx).day} · page ${secOf(nx).page}.` : `Saved! ${r.score} / ${r.total}. You finished everything!`, 5000);
+        saveNow(); return;
+      } catch(e){ await new Promise(res => setTimeout(res, 1500 * (i + 1))); }
+    }
+    $('mYes').disabled = false; $('mYes').textContent = 'Try again';
+    toast('Could not send. Check your internet and try again.', 4000);
+  };
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+/* ===================== PDF of one submitted part, for the teacher ===================== */
+const pdfText = s => String(s == null ? '' : s).replace(/[−–]/g, '-').replace(/[’‘]/g, "'").replace(/▢/g, '[ ]').replace(/[^\x20-\x7E\xA0-\xFF×·]/g, '');
+const plainT = h => { const t = document.createElement('div'); t.innerHTML = String(h || '').replace(/<sup>(.*?)<\/sup>/g, '^$1').replace(/<br\s*\/?>/g, ' '); return t.textContent.replace(/\s+/g, ' ').trim(); };
+document.addEventListener('click', e => { const b = e.target.closest('[data-pdf]'); if (b) downloadPDF(b.dataset.pdf); });
+function downloadPDF(secId){
+  if (!window.jspdf){ toast('The PDF maker did not load. Check the internet and try again.', 4000); return; }
+  const s = SECTIONS.filter(x => x.id === secId)[0], r = S.done[secId], qs = qsOf(s);
+  const { jsPDF } = window.jspdf, doc = new jsPDF({ unit:'mm', format:'a4' });
+  const W = 210, H = 297, L = 16, R = W - 22, NAVY = [17, 28, 87], GREEN = [92, 194, 70];
+  const frame = () => { doc.setFillColor(...NAVY); doc.rect(0, 0, W, 7, 'F'); doc.rect(0, H - 7, W, 7, 'F'); doc.setFillColor(...GREEN); doc.rect(W - 9, 7, 9, H - 14, 'F'); };
+  frame();
+  doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Grade 5 Math Homework', L, 20);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(60, 60, 60);
+  doc.text(pdfText('Week ' + s.week + ' · ' + s.day + ' · Page ' + s.page + ' · Lesson ' + s.lesson + ' ' + TITLES[s.lesson]), L, 27);
+  doc.setDrawColor(200, 200, 205); doc.setLineWidth(.6); doc.roundedRect(L, 33, R - L, 30, 3, 3, 'S');
+  doc.setFontSize(11); doc.text('Name', L + 5, 41); doc.text('Class', L + 5, 49); doc.text('Submitted', L + 5, 57);
+  doc.setTextColor(20, 20, 20); doc.setFont('helvetica', 'bold'); doc.text(pdfText(S.name), L + 30, 41); doc.text(pdfText(S.cls), L + 30, 49);
+  doc.setFont('helvetica', 'normal'); doc.text(new Date(r.at).toLocaleString('en-GB'), L + 30, 57);
+  doc.setFillColor(...NAVY); doc.roundedRect(R - 52, 37, 48, 22, 3, 3, 'F'); doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.text(r.score + ' / ' + r.total, R - 28, 48, { align:'center' });
+  doc.setFontSize(11); doc.text(Math.round(r.score / r.total * 100) + '%', R - 28, 55, { align:'center' });
+  let y = 72;
+  const head = () => { doc.setFillColor(...NAVY); doc.rect(L, y, R - L, 7, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+    doc.text('Q', L + 2, y + 4.8); doc.text('Question', L + 10, y + 4.8); doc.text('Result', L + 84, y + 4.8); doc.text('Student answer', L + 102, y + 4.8); doc.text('Correct answer', L + 140, y + 4.8); y += 7; };
+  head();
+  qs.forEach(q => {
+    const it = r.items[q.n], a = (r.answers || {})[qid(s, q)];
+    const qt = pdfText(q.kind === 'vert' ? q.a + ' × ' + q.b : q.kind === 'exp' ? q.before + '^[ ]' + q.after : plainT(q.text));
+    const given = q.kind === 'multi' ? (Array.isArray(a) ? a.map(i => 'ABCDE'.charAt(i)).join(', ') : '') : (isObj(a) ? boxesOf(q).map(p => a[p] || '_').join(' / ') : (a == null ? '' : String(a)));
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    const c1 = doc.splitTextToSize(qt, 72), c2 = doc.splitTextToSize(pdfText(given) || '(blank)', 36), c3 = doc.splitTextToSize(it.right ? '' : pdfText(it.answer), R - L - 142);
+    const h = Math.max(c1.length, c2.length, c3.length, 1) * 4 + 2.6;
+    if (y + h > H - 16){ doc.addPage(); frame(); y = 16; head(); }
+    doc.setFillColor(...(it.right ? [225, 243, 232] : [251, 228, 228])); doc.rect(L, y, R - L, h, 'F');
+    doc.setTextColor(30, 30, 30); doc.setFont('helvetica', 'bold'); doc.text(String(q.n), L + 2, y + 4.4);
+    doc.setFont('helvetica', 'normal'); doc.text(c1, L + 10, y + 4.4);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...(it.right ? [29, 127, 70] : [194, 59, 59])); doc.text(it.right ? 'Right' : (it.blank ? 'Blank' : 'Wrong'), L + 84, y + 4.4);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 30); doc.text(c2, L + 102, y + 4.4); if (c3.length) doc.text(c3, L + 140, y + 4.4);
+    y += h;
+  });
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++){ doc.setPage(i); doc.setFontSize(8.5); doc.setTextColor(90, 90, 90); doc.setFont('helvetica', 'normal');
+    doc.text(pdfText(S.name + ' · ' + S.cls + ' · Week ' + s.week + ' ' + s.day + ' · page ' + s.page), L, H - 11); doc.text('Page ' + i + ' of ' + n, R, H - 11, { align:'right' }); }
+  doc.save(('Grade5_' + S.cls + '_' + S.name + '_W' + s.week + '_' + s.day + '_p' + s.page).replace(/[^A-Za-z0-9_]+/g, '_') + '.pdf');
+  toast('PDF saved. Send it to your teacher.', 4000);
+}
+</script>
+</body>
+</html>
